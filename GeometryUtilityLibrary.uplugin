@@ -1,0 +1,19 @@
+{
+	"FileVersion" : 1,
+	"Version" : 1,
+	"VersionName" : "1.0.0",
+	"FriendlyName" : "Geometry Utility Library",
+	"CreatedBy" : "Nuraga Wiswakarma", 
+	"Description" : "",
+	"Category" : "Programming",
+	"EnabledByDefault" : "true",
+	"CanContainContent" : "true",
+	"Modules" :
+	[
+		{
+			"Name" : "GeometryUtilityLibrary",
+			"Type" : "Runtime",
+            "LoadingPhase": "PostConfigInit"
+		}
+	]
+}
