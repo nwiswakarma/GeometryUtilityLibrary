@@ -118,3 +118,53 @@ void UGULPolyUtilityLibrary::FlipPoints(TArray<FVector2D>& Points, const FVector
         Point = Dimension - Point;
     }
 }
+
+bool UGULPolyUtilityLibrary::IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
+{
+    TArray<FIntPoint> IntPoly;
+    FIntPoint pt = ScaleToIntPoint(Point);
+
+    ScaleToIntPoint(Poly, IntPoly);
+
+    //returns 0 if false, +1 if true, -1 if pt ON polygon boundary
+    int32 result = 0;
+    int32 cnt = IntPoly.Num();
+    if (cnt < 3) return false; //return 0;
+    FIntPoint ip = IntPoly[0];
+    for(int32 i = 1; i <= cnt; ++i)
+    {
+        FIntPoint ipNext = (i == cnt ? IntPoly[0] : IntPoly[i]);
+        if (ipNext.Y == pt.Y)
+        {
+            if ((ipNext.X == pt.X) || (ip.Y == pt.Y && 
+              ((ipNext.X > pt.X) == (ip.X < pt.X)))) return true; //return -1;
+        }
+        if ((ip.Y < pt.Y) != (ipNext.Y < pt.Y))
+        {
+            if (ip.X >= pt.X)
+            {
+                if (ipNext.X > pt.X) result = 1 - result;
+                else
+                {
+                    float d = (float)(ip.X - pt.X) * (ipNext.Y - pt.Y) - 
+                      (float)(ipNext.X - pt.X) * (ip.Y - pt.Y);
+                    if (!d) return true; //return -1;
+                    if ((d > 0) == (ipNext.Y > ip.Y)) result = 1 - result;
+                }
+            }
+            else
+            {
+                if (ipNext.X > pt.X)
+                {
+                    float d = (float)(ip.X - pt.X) * (ipNext.Y - pt.Y) - 
+                      (float)(ipNext.X - pt.X) * (ip.Y - pt.Y);
+                    if (!d) return true; //return -1;
+                    if ((d > 0) == (ipNext.Y > ip.Y)) result = 1 - result;
+                }
+            }
+        }
+        ip = ipNext;
+    }
+
+    return (result != 0);
+}
