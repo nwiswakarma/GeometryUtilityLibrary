@@ -28,15 +28,20 @@
 #include "Geom/GULGeometryUtilityLibrary.h"
 
 void UGULGeometryUtility::GenerateRadialSplatter(
-    int32 Seed,
+    FRandomStream& Rand,
     const FGULGeometryRadialSplatterParameters& RadialConfig,
     const FGULGeometryTransformParameters& GeometryTransform,
     TArray<FGULGeometrySplatterInstance>& GeometryInstances
     )
 {
-    FRandomStream Rand(Seed);
+    int32 InstanceCount = FMath::Max(RadialConfig.InstanceCount, 1);
+    int32 InstanceCountMax = RadialConfig.InstanceCountMax;
 
-    const int32 InstanceCount = FMath::Max(RadialConfig.InstanceCount, 3);
+    if (InstanceCount < InstanceCountMax)
+    {
+        InstanceCount = Rand.RandRange(InstanceCount, InstanceCountMax);
+    }
+
     const float UnitAngle = (2.f * PI) / InstanceCount;
 
     // Ring angle random (calculate once)
@@ -119,5 +124,97 @@ void UGULGeometryUtility::GenerateRadialSplatter(
             Angle,
             Value
             );
+    }
+}
+
+void UGULGeometryUtility::K2_GenerateRadialSplatter(
+    int32 Seed,
+    const FGULGeometryRadialSplatterParameters& RadialConfig,
+    const FGULGeometryTransformParameters& GeometryTransform,
+    TArray<FGULGeometrySplatterInstance>& GeometryInstances
+    )
+{
+    FRandomStream Rand(Seed);
+    GenerateRadialSplatter(
+        Rand,
+        RadialConfig,
+        GeometryTransform,
+        GeometryInstances
+        );
+}
+
+void UGULGeometryUtility::GenerateRadialSplatterPoly(
+    int32 Seed,
+    int32 Sides,
+    int32 SidesMax,
+    const FGULGeometryRadialSplatterParameters& RadialConfig,
+    const FGULGeometryTransformParameters& GeometryTransform,
+    TArray<FGULPolyGeometryInstance>& Polys
+    )
+{
+    FRandomStream Rand(Seed);
+
+    TArray<FGULGeometrySplatterInstance> GeometryInstances;
+    GenerateRadialSplatter(
+        Rand,
+        RadialConfig,
+        GeometryTransform,
+        GeometryInstances
+        );
+
+    Sides = FMath::Max(3, Sides);
+
+    Polys.SetNumUninitialized(GeometryInstances.Num());
+
+    for (int32 i=0; i<Polys.Num(); ++i)
+    {
+        const FGULGeometrySplatterInstance& Geom(GeometryInstances[i]);
+        FGULPolyGeometryInstance Poly;
+
+        Poly.Origin = Geom.Position;
+        Poly.Size = Geom.Size;
+        Poly.Scale = Geom.Scale;
+        Poly.Angle = Geom.Angle;
+        Poly.Value = Geom.Value;
+
+        Poly.Sides = (Sides < SidesMax)
+            ? Rand.RandRange(Sides, SidesMax)
+            : Sides;
+
+        Polys[i] = Poly;
+    }
+}
+
+void UGULGeometryUtility::GenerateRadialSplatterQuad(
+    int32 Seed,
+    const FGULGeometryRadialSplatterParameters& RadialConfig,
+    const FGULGeometryTransformParameters& GeometryTransform,
+    TArray<FGULQuadGeometryInstance>& Quads
+    )
+{
+    FRandomStream Rand(Seed);
+
+    TArray<FGULGeometrySplatterInstance> GeometryInstances;
+    GenerateRadialSplatter(
+        Rand,
+        RadialConfig,
+        GeometryTransform,
+        GeometryInstances
+        );
+
+    Quads.SetNumUninitialized(GeometryInstances.Num());
+
+    for (int32 i=0; i<Quads.Num(); ++i)
+    {
+        const FGULGeometrySplatterInstance& Geom(GeometryInstances[i]);
+        FGULQuadGeometryInstance Quad;
+
+        Quad.Origin = Geom.Position;
+        Quad.Size = Geom.Size;
+        Quad.Scale = Geom.Scale;
+        Quad.Angle = Geom.Angle;
+        Quad.Value = Geom.Value;
+
+        Quads[i] = Quad;
     }
 }

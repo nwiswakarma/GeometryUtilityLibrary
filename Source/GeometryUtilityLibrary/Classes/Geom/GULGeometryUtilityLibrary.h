@@ -29,6 +29,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Geom/GULGeometryInstanceTypes.h"
 #include "GULGeometryUtilityLibrary.generated.h"
 
 USTRUCT(BlueprintType)
@@ -41,6 +42,9 @@ struct GEOMETRYUTILITYLIBRARY_API FGULGeometryRadialSplatterParameters
 
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     int32 InstanceCount = 3;
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    int32 InstanceCountMax = 0;
 
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     float Radius = 0.5f;
@@ -133,11 +137,36 @@ class GEOMETRYUTILITYLIBRARY_API UGULGeometryUtility : public UBlueprintFunction
 
 public:
 
-    UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="RadialConfig,GeometryTransform"))
     static void GenerateRadialSplatter(
+        FRandomStream& Rand,
+        const FGULGeometryRadialSplatterParameters& RadialConfig,
+        const FGULGeometryTransformParameters& GeometryTransform,
+        TArray<FGULGeometrySplatterInstance>& GeometryInstances
+        );
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
+    static void K2_GenerateRadialSplatter(
         int32 Seed,
         const FGULGeometryRadialSplatterParameters& RadialConfig,
         const FGULGeometryTransformParameters& GeometryTransform,
         TArray<FGULGeometrySplatterInstance>& GeometryInstances
+        );
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter (Poly)", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
+    static void GenerateRadialSplatterPoly(
+        int32 Seed,
+        int32 Sides,
+        int32 SidesMax,
+        const FGULGeometryRadialSplatterParameters& RadialConfig,
+        const FGULGeometryTransformParameters& GeometryTransform,
+        TArray<FGULPolyGeometryInstance>& Polys
+        );
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter (Quad)", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
+    static void GenerateRadialSplatterQuad(
+        int32 Seed,
+        const FGULGeometryRadialSplatterParameters& RadialConfig,
+        const FGULGeometryTransformParameters& GeometryTransform,
+        TArray<FGULQuadGeometryInstance>& Quads
         );
 };
