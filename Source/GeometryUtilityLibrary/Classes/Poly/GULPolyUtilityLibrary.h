@@ -125,4 +125,44 @@ public:
     static void FlipPoints(TArray<FVector2D>& Points, const FVector2D& Dimension);
 
     static bool IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
+
+    static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2);
+
+    FORCEINLINE static bool IsPointOnTri(
+        const FVector2D& Point,
+        const FVector2D& TriPoint0,
+        const FVector2D& TriPoint1,
+        const FVector2D& TriPoint2
+        )
+    {
+        return IsPointOnTri(
+            Point.X,
+            Point.Y,
+            TriPoint0.X,
+            TriPoint0.Y,
+            TriPoint1.X,
+            TriPoint1.Y,
+            TriPoint2.X,
+            TriPoint2.Y
+            );
+    }
+
+    FORCEINLINE static bool IsPointOnTri(
+        const FVector& Point,
+        const FVector& TriPoint0,
+        const FVector& TriPoint1,
+        const FVector& TriPoint2
+        )
+    {
+        return IsPointOnTri(
+            Point.X,
+            Point.Y,
+            TriPoint0.X,
+            TriPoint0.Y,
+            TriPoint1.X,
+            TriPoint1.Y,
+            TriPoint2.X,
+            TriPoint2.Y
+            );
+    }
 };

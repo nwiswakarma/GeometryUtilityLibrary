@@ -168,3 +168,17 @@ bool UGULPolyUtilityLibrary::IsPointInPoly(const FVector2D& Point, const TArray<
 
     return (result != 0);
 }
+
+bool UGULPolyUtilityLibrary::IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
+{
+    float dX = px-tpx2;
+    float dY = py-tpy2;
+    float dX21 = tpx2-tpx1;
+    float dY12 = tpy1-tpy2;
+    float D = dY12*(tpx0-tpx2) + dX21*(tpy0-tpy2);
+    float s = dY12*dX + dX21*dY;
+    float t = (tpy2-tpy0)*dX + (tpx0-tpx2)*dY;
+    return (D<0.f)
+        ? (s<=0.f && t<=0.f && s+t>=D)
+        : (s>=0.f && t>=0.f && s+t<=D);
+}
