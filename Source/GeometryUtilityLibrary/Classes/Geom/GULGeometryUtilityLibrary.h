@@ -169,4 +169,12 @@ public:
         const FGULGeometryTransformParameters& GeometryTransform,
         TArray<FGULQuadGeometryInstance>& Quads
         );
+
+    static bool SegmentIntersection2D(
+        const FVector2D& SegmentA0,
+        const FVector2D& SegmentA1,
+        const FVector2D& SegmentB0,
+        const FVector2D& SegmentB1,
+        FVector2D& OutIntersectionPoint
+        );
 };

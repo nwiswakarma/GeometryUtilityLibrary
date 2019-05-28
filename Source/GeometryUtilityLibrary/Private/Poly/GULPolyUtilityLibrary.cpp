@@ -111,6 +111,35 @@ void UGULPolyUtilityLibrary::FitPoints(TArray<FVector2D>& Points, const FVector2
     }
 }
 
+void UGULPolyUtilityLibrary::FitPointsWithinBounds(TArray<FVector2D>& Points, const FBox2D& FitBounds, float FitScale)
+{
+    // Generate point bounds
+
+    FBox2D Bounds(ForceInitToZero);
+
+    for (const FVector2D& Point : Points)
+    {
+        Bounds += Point;
+    }
+
+    // Scale points
+
+    const FVector2D& Unit(FVector2D::UnitVector);
+    const FVector2D& Size(FitBounds.GetSize());
+    const FVector2D  Extents = Size/2.f;
+
+    const FVector2D Offset = Unit-(Unit+Bounds.Min);
+    const FVector2D ScaledOffset = (1.f-FitScale) * Extents;
+    const float Scale = (Size/Bounds.GetSize()).GetMin() * FitScale;
+
+    const FVector2D& BoundsOffset(FitBounds.Min);
+
+    for (FVector2D& Point : Points)
+    {
+        Point = BoundsOffset + ScaledOffset + (Offset+Point)*Scale;
+    }
+}
+
 void UGULPolyUtilityLibrary::FlipPoints(TArray<FVector2D>& Points, const FVector2D& Dimension)
 {
     for (FVector2D& Point : Points)

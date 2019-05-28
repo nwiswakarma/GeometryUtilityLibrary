@@ -218,3 +218,28 @@ void UGULGeometryUtility::GenerateRadialSplatterQuad(
         Quads[i] = Quad;
     }
 }
+
+bool UGULGeometryUtility::SegmentIntersection2D(
+    const FVector2D& SegmentA0,
+    const FVector2D& SegmentA1,
+    const FVector2D& SegmentB0,
+    const FVector2D& SegmentB1,
+    FVector2D& OutIntersectionPoint
+    )
+{
+    const FVector2D VectorA = SegmentA1 - SegmentA0;
+    const FVector2D VectorB = SegmentB1 - SegmentB0;
+
+    const float S = (-VectorA.Y * (SegmentA0.X - SegmentB0.X) + VectorA.X * (SegmentA0.Y - SegmentB0.Y)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+    const float T = ( VectorB.X * (SegmentA0.Y - SegmentB0.Y) - VectorB.Y * (SegmentA0.X - SegmentB0.X)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+
+    const bool bIntersects = (S >= 0 && S <= 1 && T >= 0 && T <= 1);
+
+    if (bIntersects)
+    {
+        OutIntersectionPoint.X = SegmentA0.X + (T * VectorA.X);
+        OutIntersectionPoint.Y = SegmentA0.Y + (T * VectorA.Y);
+    }
+
+    return bIntersects;
+}

@@ -122,6 +122,8 @@ public:
 
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
+    static void FitPointsWithinBounds(TArray<FVector2D>& Points, const FBox2D& FitBounds, float FitScale = 1.f);
+
     static void FlipPoints(TArray<FVector2D>& Points, const FVector2D& Dimension);
 
     static bool IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
