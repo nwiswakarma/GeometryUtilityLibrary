@@ -27,31 +27,6 @@
 
 #include "Poly/GULPolyUtilityLibrary.h"
 
-float UGULPolyUtilityLibrary::GetArea(const TArray<FVector2D>& Points)
-{
-    int32 PointCount = Points.Num();
-    
-    if (PointCount < 3)
-    {
-        return 0.f;
-    }
-    
-    float a = 0;
-    
-    for (int32 i=0, j=PointCount-1; i<PointCount; ++i)
-    {
-        a += (Points[j].X + Points[i].X) * (Points[j].Y - Points[i].Y);
-        j = i;
-    }
-    
-    return -a * 0.5;
-}
-
-bool UGULPolyUtilityLibrary::GetOrientation(const TArray<FVector2D>& Points)
-{
-    return GetArea(Points) >= 0.f;
-}
-
 TArray<FVector2D> UGULPolyUtilityLibrary::K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale)
 {
     // Invalid dimension, abort
@@ -196,18 +171,4 @@ bool UGULPolyUtilityLibrary::IsPointInPoly(const FVector2D& Point, const TArray<
     }
 
     return (result != 0);
-}
-
-bool UGULPolyUtilityLibrary::IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
-{
-    float dX = px-tpx2;
-    float dY = py-tpy2;
-    float dX21 = tpx2-tpx1;
-    float dY12 = tpy1-tpy2;
-    float D = dY12*(tpx0-tpx2) + dX21*(tpy0-tpy2);
-    float s = dY12*dX + dX21*dY;
-    float t = (tpy2-tpy0)*dX + (tpx0-tpx2)*dY;
-    return (D<0.f)
-        ? (s<=0.f && t<=0.f && s+t>=D)
-        : (s>=0.f && t>=0.f && s+t<=D);
 }

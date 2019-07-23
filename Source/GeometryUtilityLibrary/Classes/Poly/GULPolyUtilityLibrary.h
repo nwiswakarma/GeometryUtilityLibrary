@@ -105,11 +105,11 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyUtilityLibrary : public UBlueprintFunct
 
 public:
 
-    UFUNCTION(BlueprintCallable)
-    static float GetArea(const TArray<FVector2D>& Points);
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Area"))
+    static float K2_GetArea(const TArray<FVector2D>& Points);
 
-    UFUNCTION(BlueprintCallable)
-    static bool GetOrientation(const TArray<FVector2D>& Points);
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Orientation"))
+    static bool K2_GetOrientation(const TArray<FVector2D>& Points);
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Fit Points"))
     static TArray<FVector2D> K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale = 1.f);
@@ -128,7 +128,19 @@ public:
 
     static bool IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
 
-    static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2);
+    inline static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
+    {
+        float dX = px-tpx2;
+        float dY = py-tpy2;
+        float dX21 = tpx2-tpx1;
+        float dY12 = tpy1-tpy2;
+        float D = dY12*(tpx0-tpx2) + dX21*(tpy0-tpy2);
+        float s = dY12*dX + dX21*dY;
+        float t = (tpy2-tpy0)*dX + (tpx0-tpx2)*dY;
+        return (D<0.f)
+            ? (s<=0.f && t<=0.f && s+t>=D)
+            : (s>=0.f && t>=0.f && s+t<=D);
+    }
 
     FORCEINLINE static bool IsPointOnTri(
         const FVector2D& Point,
@@ -167,4 +179,53 @@ public:
             TriPoint2.Y
             );
     }
+
+    inline static float GetArea(const TArray<FVector2D>& Points)
+    {
+        int32 PointCount = Points.Num();
+        
+        if (PointCount < 3)
+        {
+            return 0.f;
+        }
+        
+        float a = 0.f;
+        
+        for (int32 i=0, j=PointCount-1; i<PointCount; ++i)
+        {
+            a += (Points[i].X + Points[j].X) * (Points[i].Y - Points[j].Y);
+            j = i;
+        }
+        
+        return a * 0.5f;
+    }
+
+    FORCEINLINE static float GetArea(const FVector2D& Point0, const FVector2D& Point1, const FVector2D& Point2)
+    {
+        float a = 0.f;
+        a += (Point0.X + Point2.X) * (Point0.Y - Point2.Y);
+        a += (Point1.X + Point0.X) * (Point1.Y - Point0.Y);
+        a += (Point2.X + Point1.X) * (Point2.Y - Point1.Y);
+        return a * 0.5;
+    }
+
+    FORCEINLINE static bool GetOrientation(const TArray<FVector2D>& Points)
+    {
+        return GetArea(Points) >= 0.f;
+    }
+
+    FORCEINLINE static bool GetOrientation(const FVector2D& Point0, const FVector2D& Point1, const FVector2D& Point2)
+    {
+        return GetArea(Point0, Point1, Point2) >= 0.f;
+    }
 };
+
+FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
+{
+    return GetArea(Points);
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetOrientation(const TArray<FVector2D>& Points)
+{
+    return GetOrientation(Points);
+}
