@@ -48,6 +48,39 @@
 #define FGULCONST_INT_SCALE     FGULCONST_INT3_SCALE
 #define FGULCONST_INT_SCALE_INV FGULCONST_INT3_SCALE_INV
 
+USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULPointAngleOutput
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 Index0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 Index1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 Index2;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float Angle;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bOrientation;
+
+    FORCEINLINE FString ToString() const
+    {
+        return FString::Printf(
+            TEXT("(Index0: %d, Index1: %d, Index2: %d, Angle: %f, bOrientation: %d)"),
+            Index0,
+            Index1,
+            Index2,
+            Angle,
+            bOrientation
+            );
+    }
+};
+
 UCLASS()
 class GEOMETRYUTILITYLIBRARY_API UGULPolyUtilityLibrary : public UBlueprintFunctionLibrary
 {
@@ -120,13 +153,21 @@ public:
     UFUNCTION(BlueprintCallable)
     static void ReversePoints(const TArray<FVector2D>& InPoints, TArray<FVector2D>& OutPoints);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Find Points By Angle"))
+    static void K2_FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold = 0.f);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Point Angle Vectors"))
+    static bool K2_GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents);
+
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
     static void FitPointsWithinBounds(TArray<FVector2D>& Points, const FBox2D& FitBounds, float FitScale = 1.f);
 
     static void FlipPoints(TArray<FVector2D>& Points, const FVector2D& Dimension);
 
-    static bool IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
+    // Find Point On Poly
+
+    static bool IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
 
     inline static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
     {
@@ -180,6 +221,8 @@ public:
             );
     }
 
+    // Find Area and Orientation
+
     inline static float GetArea(const TArray<FVector2D>& Points)
     {
         int32 PointCount = Points.Num();
@@ -218,6 +261,11 @@ public:
     {
         return GetArea(Point0, Point1, Point2) >= 0.f;
     }
+
+    // Find Points
+
+    static void FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold = 0.f);
+    static bool GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -228,4 +276,14 @@ FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVe
 FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetOrientation(const TArray<FVector2D>& Points)
 {
     return GetOrientation(Points);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)
+{
+    FindPointsByAngle(OutPoints, Points, AngleThreshold);
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents)
+{
+    return GetPointAngleVectors(Point0, Point1, Point2, PointAngle, Points, bMidPointExtents);
 }

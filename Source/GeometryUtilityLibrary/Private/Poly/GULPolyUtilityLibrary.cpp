@@ -123,7 +123,7 @@ void UGULPolyUtilityLibrary::FlipPoints(TArray<FVector2D>& Points, const FVector
     }
 }
 
-bool UGULPolyUtilityLibrary::IsPointInPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
+bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
 {
     TArray<FIntPoint> IntPoly;
     FIntPoint pt = ScaleToIntPoint(Point);
@@ -171,4 +171,73 @@ bool UGULPolyUtilityLibrary::IsPointInPoly(const FVector2D& Point, const TArray<
     }
 
     return (result != 0);
+}
+
+void UGULPolyUtilityLibrary::FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)
+{
+    const int32 PointCount = Points.Num();
+
+    if (Points.Num() < 3)
+    {
+        return;
+    }
+
+    OutPoints.Reset(PointCount);
+
+    for (int32 i=1; i<PointCount; ++i)
+    {
+        int32 i0 = i-1;
+        int32 i1 = i%PointCount;
+        int32 i2 = (i+1)%PointCount;
+
+        const FVector2D& P0(Points[i0]);
+        const FVector2D& P1(Points[i1]);
+        const FVector2D& P2(Points[i2]);
+
+        FVector2D N01(P1-P0);
+        FVector2D N12(P2-P1);
+
+        N01.Normalize();
+        N12.Normalize();
+
+        const float Dot = N01 | N12;
+
+        if (Dot < AngleThreshold)
+        {
+            FGULPointAngleOutput Output;
+            Output.Index0 = i0;
+            Output.Index1 = i1;
+            Output.Index2 = i2;
+            Output.Angle = Dot;
+            Output.bOrientation = (FVector2D(-N01.Y, N01.X) | N12) >= 0.f;
+            OutPoints.Emplace(Output);
+            //UE_LOG(LogTemp,Warning, TEXT("%s"), *Output.ToString());
+        }
+    }
+
+    OutPoints.Shrink();
+
+    //UE_LOG(LogTemp,Warning, TEXT("OutPoints.Num(): %d"), OutPoints.Num());
+}
+
+bool UGULPolyUtilityLibrary::GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents)
+{
+    if (Points.IsValidIndex(PointAngle.Index0) &&
+        Points.IsValidIndex(PointAngle.Index1) &&
+        Points.IsValidIndex(PointAngle.Index2))
+    {
+        Point0 = Points[PointAngle.Index0];
+        Point1 = Points[PointAngle.Index1];
+        Point2 = Points[PointAngle.Index2];
+
+        if (bMidPointExtents)
+        {
+            Point0 = Point0+(Point1-Point0)*.5f;
+            Point2 = Point1+(Point2-Point1)*.5f;
+        }
+
+        return true;
+    }
+
+    return false;
 }
