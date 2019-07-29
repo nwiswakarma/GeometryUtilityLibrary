@@ -86,6 +86,11 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyUtilityLibrary : public UBlueprintFunct
 {
     GENERATED_BODY()
 
+    typedef TDoubleLinkedList<FVector2D>                        FPointList;
+    typedef TDoubleLinkedList<FVector2D>::TIterator             FPointIterator;
+    typedef TDoubleLinkedList<FVector2D>::TDoubleLinkedListNode FPointNode;
+    typedef TSet<FPointNode*>                                   FPointNodeSet;
+
     FORCEINLINE static int32 ScaleToInt32(float v)
     {
         return v < 0.f
@@ -136,6 +141,14 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyUtilityLibrary : public UBlueprintFunct
         }
     }
 
+    FORCEINLINE static bool IsValidPointCountToCollapse(uint32 PointCount, bool bCircular)
+    {
+        return (!bCircular && PointCount > 2) || (bCircular && PointCount > 3);
+    }
+
+    static void CollapseOrMergePointNodeFromSet(FPointList& PointList, FPointNodeSet& PointNodeSet, FPointNode& PointNode, bool bCircular, TArray<FPointNode*>* RemovedNodeNeighbours = nullptr);
+    static void GetAdjacentNodes(FPointNode*& PrevNode, FPointNode*& NextNode, FPointList& PointList, FPointNode& Node, bool bCircular, bool bSkipCircularEndPoints);
+
 public:
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Area"))
@@ -158,6 +171,9 @@ public:
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Point Angle Vectors"))
     static bool K2_GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Collapse Point Angles"))
+    static void K2_CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration = 1, float AngleThreshold = 0.f, float SignFilter = 0.f);
 
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
@@ -266,6 +282,8 @@ public:
 
     static void FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold = 0.f);
     static bool GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents);
+    static void CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration = 1, float AngleThreshold = 0.f, float SignFilter = 0.f);
+    static bool IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -286,4 +304,82 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FindPointsByAngle(TArray<
 FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents)
 {
     return GetPointAngleVectors(Point0, Point1, Point2, PointAngle, Points, bMidPointExtents);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration, float AngleThreshold, float SignFilter)
+{
+    CollapsePointAngles(OutPoints, Points, bCircular, MaxIteration, AngleThreshold, SignFilter);
+}
+
+inline bool UGULPolyUtilityLibrary::IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative)
+{
+    FVector2D N01(P1-P0);
+    FVector2D N12(P2-P1);
+
+    N01.Normalize();
+    N12.Normalize();
+
+    const float Dot = N01 | N12;
+
+    if (Dot < AngleThreshold)
+    {
+        bool bRemovePoint = true;
+
+        if (bFilterBySign)
+        {
+            FVector2D N01Ortho(-N01.Y, N01.X);
+            bRemovePoint = ((N01Ortho | N12) < 0.f) == bFilterNegative;
+        }
+
+        return bRemovePoint;
+    }
+
+    return false;
+}
+
+inline void UGULPolyUtilityLibrary::GetAdjacentNodes(FPointNode*& PrevNode, FPointNode*& NextNode, FPointList& PointList, FPointNode& Node, bool bCircular, bool bSkipCircularEndPoints)
+{
+    PrevNode = Node.GetPrevNode();
+    NextNode = Node.GetNextNode();
+
+    if (bCircular && (! PrevNode || ! NextNode))
+    {
+        check(PrevNode || NextNode);
+
+        // Circular make sure no node is invalid
+        if (bCircular)
+        {
+            // Invalid previous node, set prev node to tail node
+            if (! PrevNode)
+            {
+                // Ensure current node is head
+                check(&Node == PointList.GetHead());
+
+                if (bSkipCircularEndPoints)
+                {
+                    PrevNode = PointList.GetTail()->GetPrevNode();
+                }
+                else
+                {
+                    PrevNode = PointList.GetTail();
+                }
+            }
+
+            // Invalid next node, set next node to head node
+            if (! NextNode)
+            {
+                // Ensure current node is tail
+                check(&Node == PointList.GetTail());
+
+                if (bSkipCircularEndPoints)
+                {
+                    NextNode = PointList.GetHead()->GetNextNode();
+                }
+                else
+                {
+                    NextNode = PointList.GetHead();
+                }
+            }
+        }
+    }
 }

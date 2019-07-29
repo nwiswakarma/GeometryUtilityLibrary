@@ -211,13 +211,10 @@ void UGULPolyUtilityLibrary::FindPointsByAngle(TArray<FGULPointAngleOutput>& Out
             Output.Angle = Dot;
             Output.bOrientation = (FVector2D(-N01.Y, N01.X) | N12) >= 0.f;
             OutPoints.Emplace(Output);
-            //UE_LOG(LogTemp,Warning, TEXT("%s"), *Output.ToString());
         }
     }
 
     OutPoints.Shrink();
-
-    //UE_LOG(LogTemp,Warning, TEXT("OutPoints.Num(): %d"), OutPoints.Num());
 }
 
 bool UGULPolyUtilityLibrary::GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents)
@@ -240,4 +237,242 @@ bool UGULPolyUtilityLibrary::GetPointAngleVectors(FVector2D& Point0, FVector2D& 
     }
 
     return false;
+}
+
+
+void UGULPolyUtilityLibrary::CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration, float AngleThreshold, float SignFilter)
+{
+    const int32 PointCount = Points.Num();
+
+    if ((!bCircular && Points.Num() < 2) ||
+        ( bCircular && Points.Num() < 3) ||
+        MaxIteration < 1
+        )
+    {
+        return;
+    }
+
+    const bool bFilterBySign = FMath::Abs(SignFilter) > KINDA_SMALL_NUMBER;
+    const bool bFilterNegative = SignFilter < 0.f;
+
+    // Generate point list
+
+    FPointList PointList;
+
+    for (const FVector2D& Point : Points)
+    {
+        PointList.AddTail(Point);
+    }
+
+    const bool bIntersectingEndPoints = bCircular && Points[0].Equals(Points.Last());
+
+    // First collapse iteration, iterate the whole point list
+
+    TArray<FPointNode*> RemoveCandidates;
+
+    {
+        TSet<FPointNode*> NodesToRemoveSet;
+        FPointNode* Head = PointList.GetHead();
+        FPointNode* Tail = PointList.GetTail();
+
+        for (FPointIterator NodeIt(Head); NodeIt; ++NodeIt)
+        {
+            FPointNode* CurrNode = NodeIt.GetNode();
+            FPointNode* PrevNode = CurrNode->GetPrevNode();
+            FPointNode* NextNode = CurrNode->GetNextNode();
+
+            GetAdjacentNodes(PrevNode, NextNode, PointList, *CurrNode, bCircular, bIntersectingEndPoints);
+
+            if (! bCircular && (! PrevNode || ! NextNode))
+            {
+                continue;
+            }
+
+            check(CurrNode != nullptr);
+            check(PrevNode != nullptr);
+            check(NextNode != nullptr);
+
+            const FVector2D& P0(PrevNode->GetValue());
+            const FVector2D& P1(CurrNode->GetValue());
+            const FVector2D& P2(NextNode->GetValue());
+
+            bool bRemovePoint = IsPointAngleBelowThreshold(P0, P1, P2, AngleThreshold, bFilterBySign, bFilterNegative);
+
+            if (bRemovePoint)
+            {
+                NodesToRemoveSet.Emplace(CurrNode);
+            }
+        }
+
+        // Collapse or merge node and add affected node to the next iteration remove candidates
+
+        // Get removal set copy since the set will be modified on collapse/merge operation
+        TArray<FPointNode*> NodesToRemoveArr(NodesToRemoveSet.Array());
+
+        for (FPointNode* CurrNode : NodesToRemoveArr)
+        {
+            check(CurrNode != nullptr);
+            CollapseOrMergePointNodeFromSet(PointList, NodesToRemoveSet, *CurrNode, bCircular, &RemoveCandidates);
+        }
+    }
+
+    // Collapse iteration
+
+    for (int32 It=1; It<MaxIteration && IsValidPointCountToCollapse(PointList.Num(), bCircular) && (RemoveCandidates.Num() > 0); ++It)
+    {
+        // Generate removal candidates
+
+        TSet<FPointNode*> NodesToRemoveSet;
+        FPointNode* Head = PointList.GetHead();
+        FPointNode* Tail = PointList.GetTail();
+
+        for (FPointNode* CurrNode : RemoveCandidates)
+        {
+            FPointNode* PrevNode = CurrNode->GetPrevNode();
+            FPointNode* NextNode = CurrNode->GetNextNode();
+
+            GetAdjacentNodes(PrevNode, NextNode, PointList, *CurrNode, bCircular, bIntersectingEndPoints);
+
+            if (! bCircular && (! PrevNode || ! NextNode))
+            {
+                continue;
+            }
+
+            check(CurrNode != nullptr);
+            check(PrevNode != nullptr);
+            check(NextNode != nullptr);
+
+            const FVector2D& P0(PrevNode->GetValue());
+            const FVector2D& P1(CurrNode->GetValue());
+            const FVector2D& P2(NextNode->GetValue());
+
+            bool bRemovePoint = IsPointAngleBelowThreshold(P0, P1, P2, AngleThreshold, bFilterBySign, bFilterNegative);
+
+            if (bRemovePoint)
+            {
+                NodesToRemoveSet.Emplace(CurrNode);
+            }
+        }
+
+        // No more nodes to remove, break
+        if (NodesToRemoveSet.Num() < 1)
+        {
+            break;
+        }
+
+        // Collapse or merge node and add affected node to the next iteration remove candidates
+
+        // Get removal set copy since the set will be modified on collapse/merge operation
+        TArray<FPointNode*> NodesToRemoveArr(NodesToRemoveSet.Array());
+
+        // Reset remove candidates
+        RemoveCandidates.Reset();
+
+        for (FPointNode* CurrNode : NodesToRemoveArr)
+        {
+            check(CurrNode != nullptr);
+            CollapseOrMergePointNodeFromSet(PointList, NodesToRemoveSet, *CurrNode, bCircular, &RemoveCandidates);
+        }
+    }
+
+    // Generate output points
+
+    OutPoints.Reserve(PointList.Num());
+
+    for (const FVector2D& Point : PointList)
+    {
+        OutPoints.Emplace(Point);
+    }
+}
+
+void UGULPolyUtilityLibrary::CollapseOrMergePointNodeFromSet(FPointList& PointList, FPointNodeSet& PointNodeSet, FPointNode& PointNode, bool bCircular, TArray<FPointNode*>* RemovedNodeNeighbours)
+{
+    if (! PointNodeSet.Contains(&PointNode))
+    {
+        return;
+    }
+
+    FPointNode* NodePrev = PointNode.GetPrevNode();
+    FPointNode* NodeNext = PointNode.GetNextNode();
+
+    // Check for adjacent remove candidates
+    const bool bRemovePrev = NodePrev && PointNodeSet.Contains(NodePrev);
+    const bool bRemoveNext = NodeNext && PointNodeSet.Contains(NodeNext);
+
+    // No adjacent remove candidate, remove the point
+    if (! bRemovePrev && ! bRemoveNext)
+    {
+        PointNodeSet.Remove(&PointNode);
+        PointList.RemoveNode(&PointNode, true);
+
+        // Add removed node neighbours if required
+        if (RemovedNodeNeighbours)
+        {
+            if (NodePrev)
+            {
+                RemovedNodeNeighbours->Emplace(NodePrev);
+            }
+
+            if (NodeNext)
+            {
+                RemovedNodeNeighbours->Emplace(NodeNext);
+            }
+        }
+    }
+    // Merge multiple adjacent remove candidates
+    else
+    {
+        TArray<FPointNode*> RemoveCandidates;
+
+        RemoveCandidates.Emplace(&PointNode);
+
+        // Find previous nodes to remove
+        while (NodePrev && PointNodeSet.Contains(NodePrev))
+        {
+            RemoveCandidates.Emplace(NodePrev);
+            NodePrev = NodePrev->GetPrevNode();
+        }
+
+        // Find next nodes to remove
+        while (NodeNext && PointNodeSet.Contains(NodeNext))
+        {
+            RemoveCandidates.Emplace(NodeNext);
+            NodeNext = NodeNext->GetNextNode();
+        }
+
+        // Find nodes center as merge point
+
+        FBox2D Bounds(ForceInitToZero);
+
+        for (FPointNode* RemoveCandidate : RemoveCandidates)
+        {
+            Bounds += RemoveCandidate->GetValue();
+        }
+
+        // Insert node as merge point
+
+        FPointNode* MergeNode = new FPointNode(Bounds.GetCenter());
+        bool bMergeNodeValid = PointList.InsertNode(MergeNode, &PointNode);
+
+        check(bMergeNodeValid);
+
+        if (! bMergeNodeValid)
+        {
+            delete MergeNode;
+            MergeNode = nullptr;
+        }
+
+        // Remove found nodes
+        for (FPointNode* RemoveCandidate : RemoveCandidates)
+        {
+            PointNodeSet.Remove(RemoveCandidate);
+            PointList.RemoveNode(RemoveCandidate, true);
+        }
+
+        // Add merged node if required
+        if (RemovedNodeNeighbours && MergeNode)
+        {
+            RemovedNodeNeighbours->Emplace(MergeNode);
+        }
+    }
 }
