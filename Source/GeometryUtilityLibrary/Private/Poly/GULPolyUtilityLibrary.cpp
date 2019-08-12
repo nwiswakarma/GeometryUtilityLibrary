@@ -476,3 +476,19 @@ void UGULPolyUtilityLibrary::CollapseOrMergePointNodeFromSet(FPointList& PointLi
         }
     }
 }
+
+void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints)
+{
+    OutPoints.Reserve(InPoints.Num() * 2);
+
+    for (int32 i=1; i<InPoints.Num(); ++i)
+    {
+        const FVector2D& P0(InPoints[i-1]);
+        const FVector2D& P1(InPoints[i]);
+
+        OutPoints.Emplace(P0);
+        OutPoints.Emplace(P0+(P1-P0)*.5f);
+    }
+
+    OutPoints.Emplace(InPoints.Last());
+}

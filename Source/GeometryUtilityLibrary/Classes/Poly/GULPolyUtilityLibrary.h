@@ -175,6 +175,9 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Collapse Point Angles"))
     static void K2_CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration = 1, float AngleThreshold = 0.f, float SignFilter = 0.f);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Subdivide Polylines"))
+    static void K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
+
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
     static void FitPointsWithinBounds(TArray<FVector2D>& Points, const FBox2D& FitBounds, float FitScale = 1.f);
@@ -284,6 +287,10 @@ public:
     static bool GetPointAngleVectors(FVector2D& Point0, FVector2D& Point1, FVector2D& Point2, const FGULPointAngleOutput& PointAngle, const TArray<FVector2D>& Points, bool bMidPointExtents);
     static void CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration = 1, float AngleThreshold = 0.f, float SignFilter = 0.f);
     static bool IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative);
+
+    // Polylines
+
+    static void SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -309,6 +316,11 @@ FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetPointAngleVectors(FVec
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration, float AngleThreshold, float SignFilter)
 {
     CollapsePointAngles(OutPoints, Points, bCircular, MaxIteration, AngleThreshold, SignFilter);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints)
+{
+    SubdividePolylines(OutPoints, InPoints);
 }
 
 inline bool UGULPolyUtilityLibrary::IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative)
