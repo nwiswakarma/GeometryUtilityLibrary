@@ -26,6 +26,7 @@
 // 
 
 #include "Poly/GULPolyUtilityLibrary.h"
+#include "GULMathLibrary.h"
 
 TArray<FVector2D> UGULPolyUtilityLibrary::K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale)
 {
@@ -126,9 +127,9 @@ void UGULPolyUtilityLibrary::FlipPoints(TArray<FVector2D>& Points, const FVector
 bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
 {
     TArray<FIntPoint> IntPoly;
-    FIntPoint pt = ScaleToIntPoint(Point);
+    FIntPoint pt = UGULMathLibrary::ScaleToIntPoint(Point);
 
-    ScaleToIntPoint(Poly, IntPoly);
+    UGULMathLibrary::ScaleToIntPoint(IntPoly, Poly);
 
     //returns 0 if false, +1 if true, -1 if pt ON polygon boundary
     int32 result = 0;

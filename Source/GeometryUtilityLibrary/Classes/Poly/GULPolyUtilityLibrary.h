@@ -31,23 +31,6 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GULPolyUtilityLibrary.generated.h"
 
-// Float/Integer conversion constants, copied over from ajclipperplugin
-
-#define FGULCONST_INT8_SCALE     100000000.f
-#define FGULCONST_INT8_SCALE_INV 0.00000001f
-
-#define FGULCONST_INT4_SCALE     10000.f
-#define FGULCONST_INT4_SCALE_INV 0.0001f
-
-#define FGULCONST_INT3_SCALE     1000.f
-#define FGULCONST_INT3_SCALE_INV 0.001f
-
-#define FGULCONST_INT2_SCALE     100.f
-#define FGULCONST_INT2_SCALE_INV 0.01f
-
-#define FGULCONST_INT_SCALE     FGULCONST_INT3_SCALE
-#define FGULCONST_INT_SCALE_INV FGULCONST_INT3_SCALE_INV
-
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULPointAngleOutput
 {
@@ -90,56 +73,6 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyUtilityLibrary : public UBlueprintFunct
     typedef TDoubleLinkedList<FVector2D>::TIterator             FPointIterator;
     typedef TDoubleLinkedList<FVector2D>::TDoubleLinkedListNode FPointNode;
     typedef TSet<FPointNode*>                                   FPointNodeSet;
-
-    FORCEINLINE static int32 ScaleToInt32(float v)
-    {
-        return v < 0.f
-            ? static_cast<int32>(v*FGULCONST_INT_SCALE - .5f)
-            : static_cast<int32>(v*FGULCONST_INT_SCALE + .5f);
-    }
-
-    FORCEINLINE static float ScaleToFloat(int32 v)
-    {
-        return static_cast<float>(v) * FGULCONST_INT_SCALE_INV;
-    }
-
-    FORCEINLINE static FIntPoint ScaleToIntPoint(float X, float Y)
-    {
-        return FIntPoint(ScaleToInt32(X), ScaleToInt32(Y));
-    }
-
-    FORCEINLINE static FIntPoint ScaleToIntPoint(const FVector2D& v)
-    {
-        return ScaleToIntPoint(v.X, v.Y);
-    }
-
-    FORCEINLINE static void ScaleToIntPoint(const TArray<FVector2D>& Vectors, TArray<FIntPoint>& Points)
-    {
-        Points.Reset(Vectors.Num());
-        for (const FVector2D& Vector : Vectors)
-        {
-            Points.Emplace(ScaleToIntPoint(Vector));
-        }
-    }
-
-    FORCEINLINE static FVector2D ScaleToVector2D(int32 X, int32 Y)
-    {
-        return FVector2D(ScaleToFloat(X), ScaleToFloat(Y));
-    }
-
-    FORCEINLINE static FVector2D ScaleToVector2D(const FIntPoint& pt)
-    {
-        return ScaleToVector2D(pt.X, pt.Y);
-    }
-
-    FORCEINLINE static void ScaleToVector2D(const TArray<FIntPoint>& Points, TArray<FVector2D>& Vectors)
-    {
-        Vectors.Reset(Points.Num());
-        for (const FIntPoint& Point : Points)
-        {
-            Vectors.Emplace(ScaleToFloat(Point.X), ScaleToFloat(Point.Y));
-        }
-    }
 
     FORCEINLINE static bool IsValidPointCountToCollapse(uint32 PointCount, bool bCircular)
     {
