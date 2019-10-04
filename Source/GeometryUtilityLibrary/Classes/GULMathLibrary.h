@@ -141,11 +141,14 @@ public:
 
     // Hash Utility
 
+    FORCEINLINE static uint32 GetHash(int32 X, int32 Y)
+    {
+        return static_cast<int32>((0x65d200ce55b19ad8L * X + 0x4f2162926e40c299L * Y + 0x162dd799029970f8L) >> 32);
+    }
+
     FORCEINLINE static uint32 GetHash(const FIntPoint& Point)
     {
-        int64 X = Point.X;
-        int64 Y = Point.Y;
-        return static_cast<int32>((0x65d200ce55b19ad8L * X + 0x4f2162926e40c299L * Y + 0x162dd799029970f8L) >> 32);
+        return GetHash(Point.X, Point.Y);
     }
 
     FORCEINLINE static uint32 GetHash(const FVector2D& Point)
