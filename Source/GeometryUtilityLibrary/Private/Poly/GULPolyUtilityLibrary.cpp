@@ -26,6 +26,7 @@
 // 
 
 #include "Poly/GULPolyUtilityLibrary.h"
+#include "Poly/GULPolyGridObject.h"
 #include "GULMathLibrary.h"
 
 TArray<FVector2D> UGULPolyUtilityLibrary::K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale)
@@ -480,7 +481,7 @@ void UGULPolyUtilityLibrary::CollapseOrMergePointNodeFromSet(FPointList& PointLi
 
 void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints)
 {
-    OutPoints.Reserve(InPoints.Num() * 2);
+    OutPoints.Reset(InPoints.Num() * 2);
 
     for (int32 i=1; i<InPoints.Num(); ++i)
     {
@@ -492,4 +493,44 @@ void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, co
     }
 
     OutPoints.Emplace(InPoints.Last());
+}
+
+UGULPolyGridObject* UGULPolyUtilityLibrary::K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY)
+{
+    UGULPolyGridObject* PolyGrid = nullptr;
+
+    if (DimensionX < 1 || DimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGeneratorLibrary::K2_GenerateGridObjectFromPoly() ABORTED, INVALID DIMENSION"));
+        return PolyGrid;
+    }
+
+    PolyGrid = NewObject<UGULPolyGridObject>(Outer);
+
+    if (IsValid(PolyGrid))
+    {
+        PolyGrid->GenerateFromPolyPoints(PolyPoints, DimensionX, DimensionY);
+    }
+
+    return PolyGrid;
+}
+
+UGULPolyGridObject* UGULPolyUtilityLibrary::K2_GenerateGridObjectFromPointIndices(UObject* Outer, const TArray<FVector2D>& PolyPoints, const TArray<int32>& Indices, int32 DimensionX, int32 DimensionY)
+{
+    UGULPolyGridObject* PolyGrid = nullptr;
+
+    if (DimensionX < 1 || DimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGeneratorLibrary::K2_GenerateGridObjectFromPointIndices() ABORTED, INVALID DIMENSION"));
+        return PolyGrid;
+    }
+
+    PolyGrid = NewObject<UGULPolyGridObject>(Outer);
+
+    if (IsValid(PolyGrid))
+    {
+        PolyGrid->GenerateFromPolyPointIndices(PolyPoints, Indices, DimensionX, DimensionY);
+    }
+
+    return PolyGrid;
 }

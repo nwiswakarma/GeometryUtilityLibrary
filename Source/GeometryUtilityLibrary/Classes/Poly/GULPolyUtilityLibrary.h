@@ -29,7 +29,10 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "GULTypes.h"
 #include "GULPolyUtilityLibrary.generated.h"
+
+class UGULPolyGridObject;
 
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULPointAngleOutput
@@ -110,6 +113,14 @@ public:
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Subdivide Polylines"))
     static void K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Grid Object From Poly"))
+    static UGULPolyGridObject* K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Grid Object From Point Indices"))
+    static UGULPolyGridObject* K2_GenerateGridObjectFromPointIndices(UObject* Outer, const TArray<FVector2D>& PolyPoints, const TArray<int32>& Indices, int32 DimensionX, int32 DimensionY);
+
+    // Points Utility
 
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
@@ -224,6 +235,7 @@ public:
     // Polylines
 
     static void SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
+    FORCEINLINE static void SubdividePolylines(TArray<FVector2D>& Points);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -327,4 +339,10 @@ inline void UGULPolyUtilityLibrary::GetAdjacentNodes(FPointNode*& PrevNode, FPoi
             }
         }
     }
+}
+
+FORCEINLINE void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& Points)
+{
+    TArray<FVector2D> InPoints(Points);
+    SubdividePolylines(Points, InPoints);
 }

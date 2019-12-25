@@ -27,6 +27,110 @@
 
 #include "Geom/GULGeometryUtilityLibrary.h"
 
+void UGULGeometryUtility::GenerateTileSplatter(
+    FRandomStream& Rand,
+    const FGULGeometryTileSplatterParameters& TileConfig,
+    const FGULGeometryTransformParameters& GeometryTransform,
+    TArray<FGULGeometrySplatterInstance>& GeometryInstances
+    )
+{
+    FVector2D Dimension = TileConfig.Dimension;
+    Dimension *= TileConfig.Scale - TileConfig.Scale*TileConfig.ScaleRandom*Rand.GetFraction();
+
+    const FVector2D DimensionOffset = Dimension*.5f;
+
+    int32 InstanceCountX = FMath::Max(TileConfig.InstanceCountX, 1);
+    int32 InstanceCountXMax = TileConfig.InstanceCountXMax;
+
+    int32 InstanceCountY = FMath::Max(TileConfig.InstanceCountY, 1);
+    int32 InstanceCountYMax = TileConfig.InstanceCountYMax;
+
+    if (InstanceCountX < InstanceCountXMax)
+    {
+        InstanceCountX = Rand.RandRange(InstanceCountX, InstanceCountXMax);
+    }
+
+    if (InstanceCountY < InstanceCountYMax)
+    {
+        InstanceCountY = Rand.RandRange(InstanceCountY, InstanceCountYMax);
+    }
+
+    const FVector2D UnitDimension = Dimension/FVector2D(InstanceCountX, InstanceCountY);
+    const FBox2D UnitBounds(FVector2D::ZeroVector, UnitDimension);
+
+    float BoundsAngle = 2.f*PI*TileConfig.Angle;
+    BoundsAngle += PI*TileConfig.AngleRandom * (2.f*Rand.GetFraction()-1.f);
+
+    const float InstanceMask = TileConfig.InstanceMask;
+
+    for (int32 Y=0; Y<InstanceCountY; ++Y)
+    for (int32 X=0; X<InstanceCountX; ++X)
+    {
+        // Instance masking
+        if (InstanceMask > 0.f)
+        {
+            const bool bMaskInstance = Rand.GetFraction() < InstanceMask;
+
+            if (bMaskInstance)
+            {
+                continue;
+            }
+        }
+
+        // Geom Offset
+
+        FBox2D Bounds = UnitBounds.ShiftBy(UnitDimension*FVector2D(X, Y));
+        FVector2D Position = Bounds.GetCenter()-DimensionOffset;
+        Position += DimensionOffset * TileConfig.PositionRandom * (2.f*Rand.GetFraction()-1.f);
+
+        float AngleDeg = FMath::RadiansToDegrees(BoundsAngle);
+        FVector2D Offset = TileConfig.Offset + Position.GetRotated(AngleDeg);
+
+        // Geom Angle
+
+        float AngleRandom = PI*GeometryTransform.AngleRandom;
+        float Angle = PI*GeometryTransform.Angle;
+
+        AngleRandom *= Rand.GetFraction() * 2.f - 1.f;
+        Angle += BoundsAngle + AngleRandom;
+
+        // Geom Size
+
+        FVector2D SizeRandom = GeometryTransform.SizeRandom;
+        FVector2D Size = GeometryTransform.Size;
+
+        SizeRandom.X *= Rand.GetFraction();
+        SizeRandom.Y *= Rand.GetFraction();
+        SizeRandom *= Size;
+
+        Size -= SizeRandom;
+
+        // Geom Scale
+
+        float ScaleRandom = GeometryTransform.ScaleRandom;
+        float Scale = GeometryTransform.Scale;
+
+        ScaleRandom *= Scale * Rand.GetFraction();
+        Scale -= ScaleRandom;
+
+        // Geom Value
+
+        float ValueRandom = GeometryTransform.ValueRandom;
+        float Value = GeometryTransform.Value;
+
+        ValueRandom *= Value * Rand.GetFraction();
+        Value -= ValueRandom;
+
+        GeometryInstances.Emplace(
+            Offset,
+            Size,
+            Scale,
+            Angle,
+            Value
+            );
+    }
+}
+
 void UGULGeometryUtility::GenerateRadialSplatter(
     FRandomStream& Rand,
     const FGULGeometryRadialSplatterParameters& RadialConfig,
@@ -42,7 +146,11 @@ void UGULGeometryUtility::GenerateRadialSplatter(
         InstanceCount = Rand.RandRange(InstanceCount, InstanceCountMax);
     }
 
-    const float UnitAngle = (2.f * PI) / InstanceCount;
+    const bool bHasAngleLimit = RadialConfig.RingAngleLimit > 0.f;
+
+    const float UnitAngleLimit = 1.f - FMath::Max(0.f, RadialConfig.RingAngleLimit);
+    const float UnitAngleInstanceCount = RadialConfig.RingAngleLimit > 0.f ? (InstanceCount-1) : InstanceCount;
+    const float UnitAngle = (2.f * PI * UnitAngleLimit) / UnitAngleInstanceCount;
 
     // Ring angle random (calculate once)
     float RingAngleRandom = PI*RadialConfig.RingAngleRandom;
@@ -61,7 +169,6 @@ void UGULGeometryUtility::GenerateRadialSplatter(
         // Ring Angle
 
         float RingAngle = PI*RadialConfig.RingAngle;
-
         RingAngle += i*UnitAngle + RingAngleRandom;
         RingAngle += RadialSpread;
 
@@ -125,6 +232,22 @@ void UGULGeometryUtility::GenerateRadialSplatter(
             Value
             );
     }
+}
+
+void UGULGeometryUtility::K2_GenerateTileSplatter(
+    int32 Seed,
+    const FGULGeometryTileSplatterParameters& TileConfig,
+    const FGULGeometryTransformParameters& GeometryTransform,
+    TArray<FGULGeometrySplatterInstance>& GeometryInstances
+    )
+{
+    FRandomStream Rand(Seed);
+    GenerateTileSplatter(
+        Rand,
+        TileConfig,
+        GeometryTransform,
+        GeometryInstances
+        );
 }
 
 void UGULGeometryUtility::K2_GenerateRadialSplatter(
@@ -217,29 +340,4 @@ void UGULGeometryUtility::GenerateRadialSplatterQuad(
 
         Quads[i] = Quad;
     }
-}
-
-bool UGULGeometryUtility::SegmentIntersection2D(
-    const FVector2D& SegmentA0,
-    const FVector2D& SegmentA1,
-    const FVector2D& SegmentB0,
-    const FVector2D& SegmentB1,
-    FVector2D& OutIntersectionPoint
-    )
-{
-    const FVector2D VectorA = SegmentA1 - SegmentA0;
-    const FVector2D VectorB = SegmentB1 - SegmentB0;
-
-    const float S = (-VectorA.Y * (SegmentA0.X - SegmentB0.X) + VectorA.X * (SegmentA0.Y - SegmentB0.Y)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
-    const float T = ( VectorB.X * (SegmentA0.Y - SegmentB0.Y) - VectorB.Y * (SegmentA0.X - SegmentB0.X)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
-
-    const bool bIntersects = (S >= 0 && S <= 1 && T >= 0 && T <= 1);
-
-    if (bIntersects)
-    {
-        OutIntersectionPoint.X = SegmentA0.X + (T * VectorA.X);
-        OutIntersectionPoint.Y = SegmentA0.Y + (T * VectorA.Y);
-    }
-
-    return bIntersects;
 }
