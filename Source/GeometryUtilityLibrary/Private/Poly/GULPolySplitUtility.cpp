@@ -252,6 +252,7 @@ void UGULPolySplitUtility::Split(TArray<FGULVector2DGroup>& OutPolys, const TArr
 
 bool UGULPolySplitUtility::SplitPolyWithPolylines(TArray<FGULVector2DGroup>& PolysR, TArray<FGULVector2DGroup>& PolysL, const TArray<FVector2D>& InPolyPoints, const TArray<FVector2D>& InSplitPoints)
 {
+#if 0
     if (InPolyPoints.Num() < 3)
     {
         UE_LOG(LogGUL,Warning, TEXT("UGULPolySplitUtility::SplitPolyWithPolylines() ABORTED, POLY POINTS < 3"));
@@ -544,107 +545,6 @@ bool UGULPolySplitUtility::SplitPolyWithPolylines(TArray<FGULVector2DGroup>& Pol
             NewPolyNode.PrevNode->NextNode = &NewPolyNode;
             NewPolyNode.NextNode->PrevNode = &NewPolyNode;
         }
-    }
-
-#if 0
-    // Intersection found, split poly
-    if (SplitNodes.Num() > 0)
-    {
-        if ((SplitNodes.Num() % 2) > 0)
-        {
-            return false;
-        }
-
-        const int32 NodeCount = SplitNodes.Num();
-        const int32 SplitCount = NodeCount / 2;
-
-        TArray<FVector2D> OutPoly0;
-        TArray<FVector2D> OutPoly1;
-
-        for (int32 i=0; i<SplitCount; ++i)
-        {
-            const int32 i0 = i*2;
-            const int32 i1 = i0+1;
-
-            const FSplitNode& Node0(SplitNodes[i0]);
-            const FSplitNode& Node1(SplitNodes[i1]);
-
-            const int32 pi0 = Node0.PolyLineIndex;
-            const int32 pi1 = Node1.PolyLineIndex;
-
-            const int32 li0 = Node0.SplitLineIndex;
-            const int32 li1 = Node1.SplitLineIndex;
-
-            // Generate split poly 0
-            {
-                int32 pIt = pi0;
-
-                while (pIt != pi1)
-                {
-                    pIt = (pIt+1) % PolyPointCount;
-                    OutPoly0.Emplace(InPolyPoints[pIt]);
-                }
-
-                OutPoly0.Emplace(Node1.Intersection);
-
-                for (int32 lIt=li1; lIt>li0; --lIt)
-                {
-                    OutPoly0.Emplace(InSplitPoints[lIt]);
-                }
-
-                OutPoly0.Emplace(Node0.Intersection);
-            }
-
-            // Generate split poly 1
-            {
-                int32 pIt = pi1;
-
-                while (pIt != pi0)
-                {
-                    pIt = (pIt+1) % PolyPointCount;
-                    OutPoly1.Emplace(InPolyPoints[pIt]);
-                }
-
-                OutPoly1.Emplace(Node0.Intersection);
-
-                for (int32 lIt=li0; lIt<li1; ++lIt)
-                {
-                    OutPoly1.Emplace(InSplitPoints[lIt+1]);
-                }
-
-                OutPoly1.Emplace(Node1.Intersection);
-            }
-
-            FVector2D Dir0 = Node0.Intersection - InSplitPoints[li0];
-            FVector2D Dir1 = Node0.Intersection - InPolyPoints[pi0];
-
-            Dir0.Normalize();
-            Dir1.Normalize();
-
-            //EGULLineSide LineSide = FGULPolySplitter::GetSideOfLine(InSplitPoints[li0], InSplitPoints[(li0+1)%SplitPointCount], InPolyPoints[pi0]);
-            //UE_LOG(LogTemp,Warning, TEXT("Dir0 ^ Dir1: %f"), Dir0 ^ Dir1);
-            //UE_LOG(LogTemp,Warning, TEXT("Poly to Split: %d"), LineSide);
-
-            Dir0.Set(-Dir0.Y, Dir0.X);
-
-            //UE_LOG(LogTemp,Warning, TEXT("Dir0 | Dir1: %f"), Dir0 | Dir1);
-
-            if ((Dir0 | Dir1) > 0.f)
-            {
-                PolysR[PolysR.AddDefaulted()].Points = MoveTemp(OutPoly0);
-                PolysL[PolysL.AddDefaulted()].Points = MoveTemp(OutPoly1);
-            }
-            else
-            {
-                PolysR[PolysR.AddDefaulted()].Points = MoveTemp(OutPoly1);
-                PolysL[PolysL.AddDefaulted()].Points = MoveTemp(OutPoly0);
-            }
-        }
-
-        //OutPolys[OutPolys.AddDefaulted()].Points = MoveTemp(OutPoly0);
-        //OutPolys[OutPolys.AddDefaulted()].Points = MoveTemp(OutPoly1);
-
-        return true;
     }
 #endif
 
