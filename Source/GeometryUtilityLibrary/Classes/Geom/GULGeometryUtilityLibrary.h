@@ -29,206 +29,29 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Geom/GULGeometryInstanceTypes.h"
+#include "GULTypes.h"
 #include "GULGeometryUtilityLibrary.generated.h"
-
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULGeometryTileSplatterParameters
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Offset;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Dimension;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Scale = 1.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float ScaleRandom = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCountX = 3;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCountXMax = 0;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCountY = 3;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCountYMax = 0;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float InstanceMask = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float PositionRandom = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Angle = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float AngleRandom = 0.f;
-};
-
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULGeometryRadialSplatterParameters
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Offset;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCount = 3;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    int32 InstanceCountMax = 0;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Radius = 0.5f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float RadiusRandom = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Spread = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float RingAngle = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float RingAngleLimit = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float RingAngleRandom = 0.f;
-};
-
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULGeometryTransformParameters
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Size = FVector2D::UnitVector;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D SizeRandom = FVector2D::ZeroVector;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Scale = 1.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float ScaleRandom = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Angle = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float AngleRandom = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Value = 1.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float ValueRandom = 0.f;
-};
-
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULGeometrySplatterInstance
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Position = FVector2D::ZeroVector;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FVector2D Size = FVector2D::UnitVector;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Scale = 1.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Angle = 0.f;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    float Value = 1.f;
-
-    FGULGeometrySplatterInstance() = default;
-
-    FGULGeometrySplatterInstance(
-        FVector2D InPosition,
-        FVector2D InSize,
-        float InScale,
-        float InAngle,
-        float InValue
-        )
-        : Position(InPosition)
-        , Size(InSize)
-        , Scale(InScale)
-        , Angle(InAngle)
-        , Value(InValue)
-    {
-    }
-};
 
 UCLASS()
 class GEOMETRYUTILITYLIBRARY_API UGULGeometryUtility : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 
+    static void AlignBoxToBottom(TArray<FGULOrientedBox>& OutBoxes, TArray<FVector>& OutDeltas, const TArray<FGULOrientedBox>& InBoxes);
+
 public:
 
-    static void GenerateTileSplatter(
-        FRandomStream& Rand,
-        const FGULGeometryTileSplatterParameters& TileConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULGeometrySplatterInstance>& GeometryInstances
-        );
+    UFUNCTION(BlueprintCallable)
+    static void TransformBox2DPoints(FGULBox2DPoints& OutPoints, const FTransform& Transform, const FGULBox2DPoints& InPoints);
 
-    static void GenerateRadialSplatter(
-        FRandomStream& Rand,
-        const FGULGeometryRadialSplatterParameters& RadialConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULGeometrySplatterInstance>& GeometryInstances
-        );
+    UFUNCTION(BlueprintCallable)
+    static void TransformBoxVectors(FGULBoxVectors& OutVectors, const FTransform& Transform, const FGULBoxVectors& InVectors);
 
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Tile Splatter", AutoCreateRefTerm="TileConfig,GeometryTransform"))
-    static void K2_GenerateTileSplatter(
-        int32 Seed,
-        const FGULGeometryTileSplatterParameters& TileConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULGeometrySplatterInstance>& GeometryInstances
-        );
+    UFUNCTION(BlueprintCallable)
+    static void TransformBox(FGULOrientedBox& OutBox, const FGULOrientedBox& InBox, const FTransform& Transform);
 
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
-    static void K2_GenerateRadialSplatter(
-        int32 Seed,
-        const FGULGeometryRadialSplatterParameters& RadialConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULGeometrySplatterInstance>& GeometryInstances
-        );
-
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter (Poly)", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
-    static void GenerateRadialSplatterPoly(
-        int32 Seed,
-        int32 Sides,
-        int32 SidesMax,
-        const FGULGeometryRadialSplatterParameters& RadialConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULPolyGeometryInstance>& Polys
-        );
-
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Radial Splatter (Quad)", AutoCreateRefTerm="RadialConfig,GeometryTransform"))
-    static void GenerateRadialSplatterQuad(
-        int32 Seed,
-        const FGULGeometryRadialSplatterParameters& RadialConfig,
-        const FGULGeometryTransformParameters& GeometryTransform,
-        TArray<FGULQuadGeometryInstance>& Quads
-        );
+    UFUNCTION(BlueprintCallable)
+    static void AlignBox(TArray<FGULOrientedBox>& OutBoxes, TArray<FVector>& OutDeltas, const TArray<FGULOrientedBox>& InBoxes);
 
     inline static bool SegmentIntersection2D(
         const FVector2D& SegmentA0,

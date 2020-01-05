@@ -93,6 +93,9 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Orientation"))
     static bool K2_GetOrientation(const TArray<FVector2D>& Points);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Is Point On Poly"))
+    static bool K2_IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
+
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Fit Points"))
     static TArray<FVector2D> K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale = 1.f);
 
@@ -246,6 +249,11 @@ FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVe
 FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_GetOrientation(const TArray<FVector2D>& Points)
 {
     return GetOrientation(Points);
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
+{
+    return IsPointOnPoly(Point, Poly);
 }
 
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)

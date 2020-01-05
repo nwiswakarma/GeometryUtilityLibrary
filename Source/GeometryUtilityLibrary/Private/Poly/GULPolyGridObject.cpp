@@ -236,6 +236,71 @@ void UGULPolyGridObject::GenerateFromPolyPoints(const TArray<FVector2D>& InPoint
     GridData.Shrink();
 }
 
+void UGULPolyGridObject::GenerateFromPolys(const TArray<FGULVector2DGroup>& InPolys, int32 InDimensionX, int32 InDimensionY)
+{
+    if (InDimensionX < 1 || InDimensionY < 1)
+    {
+        return;
+    }
+
+    DimensionX = InDimensionX;
+    DimensionY = InDimensionY;
+
+    int32 PolyCount = InPolys.Num();
+
+    if (PolyCount < 1)
+    {
+        return;
+    }
+
+    int32 TotalPointCount = 0;
+
+    for (const FGULVector2DGroup& Poly : InPolys)
+    {
+        TotalPointCount += Poly.Points.Num();
+    }
+
+    GridMap.Reset();
+    GridMap.Reserve(TotalPointCount);
+
+    GridData.Reset(TotalPointCount);
+
+    for (int32 PolyIt=0; PolyIt<InPolys.Num(); ++PolyIt)
+    {
+        const TArray<FVector2D>& InPoints(InPolys[PolyIt].Points);
+        const int32 PointCount = InPoints.Num();
+
+        // Generate grid data from line segments
+        for (int32 i0=0, i1=1; i1<PointCount; ++i1)
+        {
+            const FVector2D& P0(InPoints[i0]);
+            const FVector2D& P1(InPoints[i1]);
+
+            GenerateGridDataFromLineSegment(P0, P1, i0, i1);
+
+            i0 = i1;
+        }
+
+        // Generate grid data from last line segment (last to first points)
+        if (PointCount > 2)
+        {
+            int32 i0 = PointCount-1;
+            int32 i1 = 0;
+
+            const FVector2D& P0(InPoints[i0]);
+            const FVector2D& P1(InPoints[i1]);
+
+            if (! P0.Equals(P1))
+            {
+                GenerateGridDataFromLineSegment(P0, P1, i0, i1);
+            }
+        }
+    }
+
+    GridMap.Shrink();
+    GridData.Shrink();
+}
+
 void UGULPolyGridObject::GenerateFromPolyPointIndices(const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices, int32 InDimensionX, int32 InDimensionY)
 {
     if (InDimensionX < 1 || InDimensionY < 1)
@@ -302,4 +367,77 @@ UGULBoundPolyGridObject* UGULPolyGridObject::GenerateBoundPolyGridObjectFromPoin
     }
 
     return GridObject;
+}
+
+void UGULPolyGridObject::GetPointSet(TArray<int32>& PointSet, int32 Index) const
+{
+    PointSet.Reset();
+
+    if (IsValidGrid(Index))
+    {
+        PointSet = GridData[Index].PointData.Array();
+    }
+}
+
+int32 UGULPolyGridObject::GatherGridDataByDimension(
+    TArray<FIntPoint>& GroupIds,
+    TArray<FGULIntPointGroup>& GridIdGroups,
+    TArray<FGULIntGroup>& PointDataGroups,
+    int32 GroupDimensionX,
+    int32 GroupDimensionY
+    )
+{
+    if (GroupDimensionX < 1 || GroupDimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGridObject::GatherGridDataByDimension() ABORTED, INVALID DIMENSION"));
+        return 0;
+    }
+
+    TMap<FIntPoint, FGridDataGroup> GroupMap;
+
+    for (const auto& DataPair : GridMap)
+    {
+        const FIntPoint& GridId(DataPair.Get<0>());
+        const TSet<int32>& PointData(GridData[DataPair.Get<1>()].PointData);
+
+        FIntPoint GroupId;
+        GroupId.X = (GridId.X / GroupDimensionX);
+        GroupId.Y = (GridId.Y / GroupDimensionY);
+
+        if (GridId.X < 0 && (GridId.X % GroupDimensionX) != 0)
+        {
+            GroupId.X -= 1;
+        }
+
+        if (GridId.Y < 0 && (GridId.Y % GroupDimensionY) != 0)
+        {
+            GroupId.Y -= 1;
+        }
+
+        FGridDataGroup& GroupData(GroupMap.FindOrAdd(GroupId));
+        GroupData.PointData = GroupData.PointData.Union(PointData);
+        GroupData.GridIds.Emplace(GridId);
+    }
+
+    const int32 GroupCount = GroupMap.Num();
+
+    GroupIds.Reserve(GroupCount);
+    GridIdGroups.Reserve(GroupCount);
+    PointDataGroups.Reserve(GroupCount);
+
+    for (auto& DataPair : GroupMap)
+    {
+        FIntPoint& GroupId(DataPair.Get<0>());
+        FGridDataGroup& GroupData(DataPair.Get<1>());
+
+        GroupIds.Emplace(GroupId);
+
+        GridIdGroups.AddDefaulted();
+        GridIdGroups.Last().Points = MoveTemp(GroupData.GridIds);
+
+        PointDataGroups.AddDefaulted();
+        PointDataGroups.Last().Values = GroupData.PointData.Array();
+    }
+
+    return GroupCount;
 }

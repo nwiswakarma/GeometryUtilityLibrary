@@ -73,6 +73,24 @@ public:
     UFUNCTION(BlueprintCallable)
     static bool GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints);
 
+    UFUNCTION(BlueprintCallable)
+    static bool GenerateIsolatedPointGroupsWithinBounds(
+        TArray<FGULIntPointGroup>& OutPointGroups,
+        const TArray<FIntPoint>& BoundaryPoints,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax
+        );
+
+    UFUNCTION(BlueprintCallable)
+    static void GenerateIsolatedGridsOnPoly(
+        TArray<FIntPoint>& GridIds,
+        const TArray<FIntPoint>& InBoundaryPoints,
+        const TArray<FGULVector2DGroup>& InPolyGroups,
+        int32 GridSize,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax
+        );
+
     FORCEINLINE static bool IsOnBounds(const FIntPoint& Point, const FIntPoint& BoundsMin, const FIntPoint& BoundsMax);
     FORCEINLINE static FIntPoint GetGridId(const FVector2D& Point, int32 DimensionX, int32 DimensionY);
     FORCEINLINE static int32 GetGridIndex(const FIntPoint& Point, const FIntPoint& Origin, int32 Stride);
@@ -102,7 +120,7 @@ FORCEINLINE bool UGULGridUtility::IsOnBounds(const FIntPoint& Point, const FIntP
 FORCEINLINE int32 UGULGridUtility::GetSquaredSize(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax)
 {
     FIntPoint Extent = BoundsMax-BoundsMin;
-    return FMath::Max(Extent.X, Extent.Y);
+    return FMath::Max(Extent.X, Extent.Y)+1;
 }
 
 inline void UGULGridUtility::GenerateBoundaryData(

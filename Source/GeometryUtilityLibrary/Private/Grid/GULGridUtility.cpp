@@ -27,6 +27,7 @@
 
 #include "Grid/GULGridUtility.h"
 #include "Geom/GULGeometryUtilityLibrary.h"
+#include "Poly/GULPolyUtilityLibrary.h"
 #include "GeometryUtilityLibrary.h"
 
 void UGULGridUtility::GridWalk(TArray<FIntPoint>& OutGridIds, const FVector2D& P0, const FVector2D& P1, int32 DimensionX, int32 DimensionY, bool bUniqueOutput)
@@ -235,9 +236,9 @@ bool UGULGridUtility::GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray
 
     GenerateBoundaryData(BoundsMin, BoundsMax, Size, BoundaryPoints);
 
-    UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s"), *BoundsMin.ToString());
-    UE_LOG(LogTemp,Warning, TEXT("BoundsMax: %s"), *BoundsMax.ToString());
-    UE_LOG(LogTemp,Warning, TEXT("Size: %d"), Size);
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s"), *BoundsMin.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMax: %s"), *BoundsMax.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("Size: %d"), Size);
 
     if (! IsOnBounds(FillTargetPoint, BoundsMin, BoundsMax))
     {
@@ -248,14 +249,14 @@ bool UGULGridUtility::GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray
     TSet<int32> BoundaryIndexSet;
     const int32 FillTargetIndex = GetGridIndex(FillTargetPoint, BoundsMin, Size);
 
-    UE_LOG(LogTemp,Warning, TEXT("FillTargetPoint: %s %d"), *FillTargetPoint.ToString(), FillTargetIndex);
+    //UE_LOG(LogTemp,Warning, TEXT("FillTargetPoint: %s %d"), *FillTargetPoint.ToString(), FillTargetIndex);
 
     for (const FIntPoint& BoundaryPoint : BoundaryPoints)
     {
         int32 GridIndex = GetGridIndex(BoundaryPoint, BoundsMin, Size);
         BoundaryIndexSet.Emplace(GridIndex);
 
-        UE_LOG(LogTemp,Warning, TEXT("BoundaryPoint: %s %d"), *BoundaryPoint.ToString(), GridIndex);
+        //UE_LOG(LogTemp,Warning, TEXT("BoundaryPoint: %s %d"), *BoundaryPoint.ToString(), GridIndex);
     }
 
     if (BoundaryIndexSet.Contains(FillTargetIndex))
@@ -283,9 +284,9 @@ bool UGULGridUtility::GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& Out
 
     GenerateBoundaryData(BoundsMin, BoundsMax, Size, BoundaryPoints);
 
-    UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s"), *BoundsMin.ToString());
-    UE_LOG(LogTemp,Warning, TEXT("BoundsMax: %s"), *BoundsMax.ToString());
-    UE_LOG(LogTemp,Warning, TEXT("Size: %d"), Size);
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s"), *BoundsMin.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMax: %s"), *BoundsMax.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("Size: %d"), Size);
 
     TSet<int32> BoundaryIndexSet;
     GenerateIndexSet(BoundaryIndexSet, BoundaryPoints, BoundsMin, Size);
@@ -333,4 +334,151 @@ bool UGULGridUtility::GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& Out
     }
     
     return true;
+}
+
+bool UGULGridUtility::GenerateIsolatedPointGroupsWithinBounds(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints, FIntPoint BoundsMin, FIntPoint BoundsMax)
+{
+    FBox2D Bounds(ForceInitToZero);
+    Bounds += FVector2D(BoundsMin.X, BoundsMin.Y);
+    Bounds += FVector2D(BoundsMax.X, BoundsMax.Y);
+
+    BoundsMin.X = FMath::RoundToInt(Bounds.Min.X);
+    BoundsMin.Y = FMath::RoundToInt(Bounds.Min.Y);
+
+    BoundsMax.X = FMath::RoundToInt(Bounds.Max.X);
+    BoundsMax.Y = FMath::RoundToInt(Bounds.Max.Y);
+
+    int32 Size = GetSquaredSize(BoundsMin, BoundsMax);
+
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s, BoundsMax: %s, Size: %d"), *BoundsMin.ToString(), *BoundsMax.ToString(), Size);
+
+    TArray<FIntPoint> ValidBoundaryPoints;
+    ValidBoundaryPoints.Reserve(BoundaryPoints.Num());
+
+    for (const FIntPoint& Point : BoundaryPoints)
+    {
+        if (IsOnBounds(Point, BoundsMin, BoundsMax))
+        {
+            ValidBoundaryPoints.Emplace(Point);
+        }
+    }
+
+    if (ValidBoundaryPoints.Num() < 1)
+    {
+        OutPointGroups.AddDefaulted();
+        TArray<FIntPoint>& OutPoints(OutPointGroups.Last().Points);
+
+        for (int32 y=BoundsMin.Y; y<=BoundsMax.Y; ++y)
+        for (int32 x=BoundsMin.X; x<=BoundsMax.X; ++x)
+        {
+            OutPoints.Emplace(x, y);
+        }
+
+        return true;
+    }
+
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s"), *BoundsMin.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("BoundsMax: %s"), *BoundsMax.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("Size: %d"), Size);
+
+    TSet<int32> BoundaryIndexSet;
+    GenerateIndexSet(BoundaryIndexSet, ValidBoundaryPoints, BoundsMin, Size);
+
+    TSet<int32> VisitedIndexSet;
+
+    const FIntPoint Offsets[4] = {
+        FIntPoint(-1,  0), // W
+        FIntPoint( 0, -1), // S
+        FIntPoint( 1,  0), // E
+        FIntPoint( 0,  1)  // N
+        };
+
+    for (const FIntPoint& BoundaryPoint : ValidBoundaryPoints)
+    {
+        for (int32 i=0; i<4; ++i)
+        {
+            FIntPoint NeighbourPoint(BoundaryPoint+Offsets[i]);
+            int32 NeighbourIndex = GetGridIndex(NeighbourPoint, BoundsMin, Size);
+
+            if (! IsOnBounds(NeighbourPoint, BoundsMin, BoundsMax) ||
+                BoundaryIndexSet.Contains(NeighbourIndex) ||
+                VisitedIndexSet.Contains(NeighbourIndex))
+            {
+                continue;
+            }
+
+            TArray<FIntPoint> IsolatedPoints;
+
+            PointFill(
+                IsolatedPoints,
+                BoundaryIndexSet,
+                BoundsMin,
+                BoundsMax,
+                NeighbourPoint,
+                &VisitedIndexSet
+                );
+
+            if (IsolatedPoints.Num() > 0)
+            {
+                OutPointGroups.AddDefaulted();
+                OutPointGroups.Last().Points = MoveTemp(IsolatedPoints);
+            }
+        }
+    }
+    
+    return true;
+}
+
+void UGULGridUtility::GenerateIsolatedGridsOnPoly(
+    TArray<FIntPoint>& GridIds,
+    const TArray<FIntPoint>& InBoundaryPoints,
+    const TArray<FGULVector2DGroup>& InPolyGroups,
+    int32 GridSize,
+    FIntPoint BoundsMin,
+    FIntPoint BoundsMax
+    )
+{
+    GridIds.Reset();
+
+    TArray<FGULIntPointGroup> IsolatedPointGroups;
+
+    if (BoundsMin.X < BoundsMax.X && BoundsMin.Y < BoundsMax.Y)
+    {
+        UGULGridUtility::GenerateIsolatedPointGroupsWithinBounds(
+            IsolatedPointGroups,
+            InBoundaryPoints,
+            BoundsMin,
+            BoundsMax
+            );
+    }
+    else
+    {
+        UGULGridUtility::GenerateIsolatedPointGroups(
+            IsolatedPointGroups,
+            InBoundaryPoints
+            );
+    }
+
+    for (FGULIntPointGroup& PointGroup : IsolatedPointGroups)
+    {
+        if (PointGroup.Points.Num() < 1)
+        {
+            continue;
+        }
+
+        FVector2D ReferencePoint;
+        ReferencePoint.X = PointGroup.Points[0].X*GridSize;
+        ReferencePoint.Y = PointGroup.Points[0].Y*GridSize;
+        ReferencePoint.X += static_cast<float>(GridSize) * .5f;
+        ReferencePoint.Y += static_cast<float>(GridSize) * .5f;
+
+        for (const FGULVector2DGroup& PolyGroup : InPolyGroups)
+        {
+            if (UGULPolyUtilityLibrary::IsPointOnPoly(ReferencePoint, PolyGroup.Points))
+            {
+                GridIds.Append(PointGroup.Points);
+                break;
+            }
+        }
+    }
 }

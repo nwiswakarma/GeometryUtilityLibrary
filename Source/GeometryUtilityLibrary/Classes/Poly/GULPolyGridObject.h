@@ -43,6 +43,13 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyGridObject : public UObject
         TSet<int32> PointData;
     };
 
+    struct FGridDataGroup
+    {
+        FIntPoint Id;
+        TArray<FIntPoint> GridIds;
+        TSet<int32> PointData;
+    };
+
     TMap<FIntPoint, int32> GridMap;
     TArray<FGridData> GridData;
 
@@ -62,7 +69,22 @@ public:
     void GenerateFromPolyPoints(const TArray<FVector2D>& InPoints, int32 InDimensionX, int32 InDimensionY);
 
     UFUNCTION(BlueprintCallable)
+    void GenerateFromPolys(const TArray<FGULVector2DGroup>& InPolys, int32 InDimensionX, int32 InDimensionY);
+
+    UFUNCTION(BlueprintCallable)
     void GenerateFromPolyPointIndices(const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices, int32 InDimensionX, int32 InDimensionY);
+
+    UFUNCTION(BlueprintCallable)
+    void GetPointSet(TArray<int32>& PointSet, int32 Index) const;
+
+    UFUNCTION(BlueprintCallable)
+    int32 GatherGridDataByDimension(
+        TArray<FIntPoint>& GroupIds,
+        TArray<FGULIntPointGroup>& GridIds,
+        TArray<FGULIntGroup>& PointSets,
+        int32 GroupDimensionX,
+        int32 GroupDimensionY
+        );
 
     UFUNCTION(BlueprintCallable)
     FORCEINLINE_DEBUGGABLE bool IsValidGrid(int32 Index) const;
@@ -82,8 +104,7 @@ public:
     UFUNCTION(BlueprintCallable)
     UGULBoundPolyGridObject* GenerateBoundPolyGridObjectFromPointData(UObject* Outer, const TArray<FVector2D>& Points, int32 Index);
 
-    //UFUNCTION(BlueprintCallable)
-    //void GridFillByPoint(TArray<FIntPoint>& OutPoints, const FIntPoint& InPoint);
+    inline void GetGridPoints(TArray<FIntPoint>& GridPoints) const;
 };
 
 FORCEINLINE FIntPoint UGULPolyGridObject::GetGridId(const FVector2D& Point)
@@ -113,4 +134,14 @@ FORCEINLINE_DEBUGGABLE int32 UGULPolyGridObject::GetGridIndex(const FIntPoint& G
 {
     const int32* IndexPtr = GridMap.Find(GridId);
     return IndexPtr ? *IndexPtr : INDEX_NONE;
+}
+
+inline void UGULPolyGridObject::GetGridPoints(TArray<FIntPoint>& GridPoints) const
+{
+    GridPoints.Reserve(GridData.Num());
+
+    for (const FGridData& GridEntry : GridData)
+    {
+        GridPoints.Emplace(GridEntry.Id);
+    }
 }

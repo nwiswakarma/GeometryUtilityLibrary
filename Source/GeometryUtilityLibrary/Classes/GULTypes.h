@@ -31,6 +31,15 @@
 #include "GULTypes.generated.h"
 
 USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULIntGroup
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<int32> Values;
+};
+
+USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULIntPointGroup
 {
     GENERATED_BODY()
@@ -47,3 +56,77 @@ struct GEOMETRYUTILITYLIBRARY_API FGULVector2DGroup
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TArray<FVector2D> Points;
 };
+
+USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULVectorGroup
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<FVector> Vectors;
+};
+
+USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULBox2DPoints
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector2D P0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector2D P1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector2D P2;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector2D P3;
+};
+
+USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULBoxVectors
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V2;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V3;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V4;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V5;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V6;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector V7;
+};
+
+USTRUCT(BlueprintType)
+struct GEOMETRYUTILITYLIBRARY_API FGULOrientedBox
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector Center;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FVector Extent;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FRotator Rotation;
+};
+
+template <> struct TIsPODType<FGULOrientedBox> { enum { Value = true }; };
