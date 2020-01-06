@@ -65,7 +65,31 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
 public:
 
     UFUNCTION(BlueprintCallable)
-    static void GridWalk(TArray<FIntPoint>& OutGridIds, const FVector2D& P0, const FVector2D& P1, int32 DimensionX, int32 DimensionY, bool bUniqueOutput = false);
+    static void GridWalk(
+        TArray<FIntPoint>& OutGridIds,
+        const FVector2D& P0,
+        const FVector2D& P1,
+        int32 DimensionX,
+        int32 DimensionY,
+        bool bUniqueOutput = false
+        );
+
+    UFUNCTION(BlueprintCallable)
+    static void GenerateGridsFromPolyGroups(
+        TArray<FIntPoint>& OutGridIds,
+        const TArray<FGULVector2DGroup>& InPolys,
+        int32 InDimensionX,
+        int32 InDimensionY
+        );
+
+    UFUNCTION(BlueprintCallable)
+    static int32 GroupGridsByDimension(
+        TArray<FIntPoint>& OutGroupIds,
+        TArray<FGULIntPointGroup>& OutGridIdGroups,
+        const TArray<FIntPoint>& InGridIds,
+        int32 GroupDimensionX,
+        int32 GroupDimensionY
+        );
 
     UFUNCTION(BlueprintCallable)
     static bool GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray<FIntPoint>& BoundaryPoints, const FIntPoint& FillTargetPoint);

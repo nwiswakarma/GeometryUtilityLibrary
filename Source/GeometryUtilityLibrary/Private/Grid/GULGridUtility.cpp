@@ -30,7 +30,14 @@
 #include "Poly/GULPolyUtilityLibrary.h"
 #include "GeometryUtilityLibrary.h"
 
-void UGULGridUtility::GridWalk(TArray<FIntPoint>& OutGridIds, const FVector2D& P0, const FVector2D& P1, int32 DimensionX, int32 DimensionY, bool bUniqueOutput)
+void UGULGridUtility::GridWalk(
+    TArray<FIntPoint>& OutGridIds,
+    const FVector2D& P0,
+    const FVector2D& P1,
+    int32 DimensionX,
+    int32 DimensionY,
+    bool bUniqueOutput
+    )
 {
     if (DimensionX < 1 || DimensionY < 1)
     {
@@ -155,6 +162,142 @@ void UGULGridUtility::GridWalk(TArray<FIntPoint>& OutGridIds, const FVector2D& P
         // Check no entry
         check(false);
     }
+}
+
+void UGULGridUtility::GenerateGridsFromPolyGroups(
+    TArray<FIntPoint>& OutGridIds,
+    const TArray<FGULVector2DGroup>& InPolys,
+    int32 InDimensionX,
+    int32 InDimensionY
+    )
+{
+    if (InDimensionX < 1 || InDimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGridObject::GenerateGridsFromPolyGroups() ABORTED, INVALID DIMENSION"));
+        return;
+    }
+
+    int32 PolyCount = InPolys.Num();
+
+    if (PolyCount < 1)
+    {
+        return;
+    }
+
+    int32 TotalPointCount = 0;
+
+    for (const FGULVector2DGroup& Poly : InPolys)
+    {
+        TotalPointCount += Poly.Points.Num();
+    }
+
+    OutGridIds.Reset(TotalPointCount);
+
+    for (int32 PolyIt=0; PolyIt<InPolys.Num(); ++PolyIt)
+    {
+        const TArray<FVector2D>& InPoints(InPolys[PolyIt].Points);
+        const int32 PointCount = InPoints.Num();
+
+        // Generate grid data from line segments
+        for (int32 i0=0, i1=1; i1<PointCount; ++i1)
+        {
+            const FVector2D& P0(InPoints[i0]);
+            const FVector2D& P1(InPoints[i1]);
+
+            //GenerateGridDataFromLineSegment(P0, P1, i0, i1);
+
+            FIntPoint ID0(GetGridId(P0, InDimensionX, InDimensionY));
+            FIntPoint ID1(GetGridId(P1, InDimensionX, InDimensionY));
+
+            OutGridIds.AddUnique(ID0);
+
+            if (ID0 != ID1)
+            {
+                GridWalk(OutGridIds, P0, P1, InDimensionX, InDimensionY, true);
+            }
+
+            i0 = i1;
+        }
+
+        // Generate grid data from last line segment (last to first points)
+        if (PointCount > 2)
+        {
+            int32 i0 = PointCount-1;
+            int32 i1 = 0;
+
+            const FVector2D& P0(InPoints[i0]);
+            const FVector2D& P1(InPoints[i1]);
+
+            FIntPoint ID0(GetGridId(P0, InDimensionX, InDimensionY));
+            FIntPoint ID1(GetGridId(P1, InDimensionX, InDimensionY));
+
+            OutGridIds.AddUnique(ID0);
+
+            //if (! P0.Equals(P1))
+            if (ID0 != ID1)
+            {
+                //GenerateGridDataFromLineSegment(P0, P1, i0, i1);
+                GridWalk(OutGridIds, P0, P1, InDimensionX, InDimensionY, true);
+            }
+        }
+    }
+
+    OutGridIds.Shrink();
+}
+
+int32 UGULGridUtility::GroupGridsByDimension(
+    TArray<FIntPoint>& OutGroupIds,
+    TArray<FGULIntPointGroup>& OutGridIdGroups,
+    const TArray<FIntPoint>& InGridIds,
+    int32 GroupDimensionX,
+    int32 GroupDimensionY
+    )
+{
+    if (GroupDimensionX < 1 || GroupDimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGridObject::GroupGridsByDimension() ABORTED, INVALID GROUP DIMENSION"));
+        return 0;
+    }
+
+    TMap< FIntPoint, TArray<FIntPoint> > GroupMap;
+
+    for (const FIntPoint& GridId : InGridIds)
+    {
+        FIntPoint GroupId;
+        GroupId.X = (GridId.X / GroupDimensionX);
+        GroupId.Y = (GridId.Y / GroupDimensionY);
+
+        if (GridId.X < 0 && (GridId.X % GroupDimensionX) != 0)
+        {
+            GroupId.X -= 1;
+        }
+
+        if (GridId.Y < 0 && (GridId.Y % GroupDimensionY) != 0)
+        {
+            GroupId.Y -= 1;
+        }
+
+        TArray<FIntPoint>& GridIds(GroupMap.FindOrAdd(GroupId));
+        GridIds.Emplace(GridId);
+    }
+
+    const int32 GroupCount = GroupMap.Num();
+
+    OutGroupIds.Reserve(GroupCount);
+    OutGridIdGroups.Reserve(GroupCount);
+
+    for (auto& DataPair : GroupMap)
+    {
+        FIntPoint& GroupId(DataPair.Get<0>());
+        TArray<FIntPoint>& GridIds(DataPair.Get<1>());
+
+        OutGroupIds.Emplace(GroupId);
+
+        OutGridIdGroups.AddDefaulted();
+        OutGridIdGroups.Last().Points = MoveTemp(GridIds);
+    }
+
+    return GroupCount;
 }
 
 void UGULGridUtility::PointFill(
