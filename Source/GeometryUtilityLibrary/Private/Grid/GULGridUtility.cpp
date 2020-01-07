@@ -173,7 +173,7 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
 {
     if (InDimensionX < 1 || InDimensionY < 1)
     {
-        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGridObject::GenerateGridsFromPolyGroups() ABORTED, INVALID DIMENSION"));
+        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GenerateGridsFromPolyGroups() ABORTED, INVALID DIMENSION"));
         return;
     }
 
@@ -255,7 +255,7 @@ int32 UGULGridUtility::GroupGridsByDimension(
 {
     if (GroupDimensionX < 1 || GroupDimensionY < 1)
     {
-        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGridObject::GroupGridsByDimension() ABORTED, INVALID GROUP DIMENSION"));
+        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GroupGridsByDimension() ABORTED, INVALID GROUP DIMENSION"));
         return 0;
     }
 
