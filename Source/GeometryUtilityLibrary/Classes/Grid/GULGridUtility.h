@@ -46,6 +46,14 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
         TSet<int32>* VisitedSet = nullptr
         );
 
+    static void PointFillMulti(
+        TArray<FIntPoint>& OutPoints,
+        const FIntPoint& BoundsMin,
+        const FIntPoint& BoundsMax,
+        const TArray<FIntPoint>& TargetPoints,
+        TFunction<bool(int32, FIntPoint)> VisitCallback = nullptr
+        );
+
     inline static void GenerateBoundaryData(
         FIntPoint& BoundsMin,
         FIntPoint& BoundsMax,
@@ -64,8 +72,29 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
 
 public:
 
-    UFUNCTION(BlueprintCallable)
+    typedef TFunction<void(FIntPoint,FVector2D,FVector2D)> FGridWalkVisitCallback;
+
     static void GridWalk(
+        TArray<FIntPoint>& OutGridIds,
+        const FVector2D& P0,
+        const FVector2D& P1,
+        int32 DimensionX,
+        int32 DimensionY,
+        bool bUniqueOutput = false,
+        FGridWalkVisitCallback VisitCallback = nullptr
+        );
+
+    static void GenerateGridsFromPolyGroups(
+        TArray<FIntPoint>& OutGridIds,
+        const TArray<FGULVector2DGroup>& InPolys,
+        int32 InDimensionX,
+        int32 InDimensionY,
+        bool bClosedPolygons = true,
+        FGridWalkVisitCallback VisitCallback = nullptr
+        );
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Grid Walk"))
+    static void K2_GridWalk(
         TArray<FIntPoint>& OutGridIds,
         const FVector2D& P0,
         const FVector2D& P1,
@@ -74,12 +103,13 @@ public:
         bool bUniqueOutput = false
         );
 
-    UFUNCTION(BlueprintCallable)
-    static void GenerateGridsFromPolyGroups(
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Grids From Poly Groups"))
+    static void K2_GenerateGridsFromPolyGroups(
         TArray<FIntPoint>& OutGridIds,
         const TArray<FGULVector2DGroup>& InPolys,
         int32 InDimensionX,
-        int32 InDimensionY
+        int32 InDimensionY,
+        bool bClosedPolygons = true
         );
 
     UFUNCTION(BlueprintCallable)
@@ -92,7 +122,26 @@ public:
         );
 
     UFUNCTION(BlueprintCallable)
+    static int32 GroupGridsByDimensionAndBounds(
+        TArray<FIntPoint>& OutGroupIds,
+        TArray<FGULIntPointGroup>& OutGridIdGroups,
+        const TArray<FIntPoint>& InGridIds,
+        FIntPoint GroupBoundsMin,
+        FIntPoint GroupBoundsMax,
+        int32 GroupDimensionX,
+        int32 GroupDimensionY
+        );
+
+    UFUNCTION(BlueprintCallable)
     static bool GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray<FIntPoint>& BoundaryPoints, const FIntPoint& FillTargetPoint);
+
+    static bool GridFillBoundsByPoints(
+        TArray<FIntPoint>& OutPoints,
+        const TArray<FIntPoint>& InTargetPoints,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax,
+        TFunction<bool(int32, FIntPoint)> FilterCallback = nullptr
+        );
 
     UFUNCTION(BlueprintCallable)
     static bool GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints);
@@ -176,4 +225,42 @@ inline void UGULGridUtility::GenerateIndexSet(TSet<int32>& OutIndexSet, const TA
     {
         OutIndexSet.Emplace(GetGridIndex(Point, Origin, Stride));
     }
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGridUtility::K2_GridWalk(
+    TArray<FIntPoint>& OutGridIds,
+    const FVector2D& P0,
+    const FVector2D& P1,
+    int32 DimensionX,
+    int32 DimensionY,
+    bool bUniqueOutput
+    )
+{
+    GridWalk(
+        OutGridIds,
+        P0,
+        P1,
+        DimensionX,
+        DimensionY,
+        bUniqueOutput,
+        nullptr
+        );
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGridUtility::K2_GenerateGridsFromPolyGroups(
+    TArray<FIntPoint>& OutGridIds,
+    const TArray<FGULVector2DGroup>& InPolys,
+    int32 InDimensionX,
+    int32 InDimensionY,
+    bool bClosedPolygons
+    )
+{
+    GenerateGridsFromPolyGroups(
+        OutGridIds,
+        InPolys,
+        InDimensionX,
+        InDimensionY,
+        bClosedPolygons,
+        nullptr
+        );
 }

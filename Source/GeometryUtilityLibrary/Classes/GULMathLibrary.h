@@ -156,3 +156,13 @@ public:
         return GetHash(ScaleToIntPoint(Point));
     }
 };
+
+FORCEINLINE FIntPoint operator+(const FIntPoint& LHS, int32 RHS)
+{
+	return LHS+FIntPoint(RHS, RHS);
+}
+
+FORCEINLINE FIntPoint operator-(const FIntPoint& LHS, int32 RHS)
+{
+	return LHS-FIntPoint(RHS, RHS);
+}

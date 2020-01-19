@@ -36,7 +36,8 @@ void UGULGridUtility::GridWalk(
     const FVector2D& P1,
     int32 DimensionX,
     int32 DimensionY,
-    bool bUniqueOutput
+    bool bUniqueOutput,
+    FGridWalkVisitCallback VisitCallback
     )
 {
     if (DimensionX < 1 || DimensionY < 1)
@@ -111,6 +112,11 @@ void UGULGridUtility::GridWalk(
                 OutGridIds.Emplace(ID0);
             }
 
+            if (VisitCallback)
+            {
+                VisitCallback(ID0, P0, P1);
+            }
+
             //UE_LOG(LogTemp,Warning, TEXT("INTERSECTX"));
             continue;
         }
@@ -155,6 +161,11 @@ void UGULGridUtility::GridWalk(
                 OutGridIds.Emplace(ID0);
             }
 
+            if (VisitCallback)
+            {
+                VisitCallback(ID0, P0, P1);
+            }
+
             //UE_LOG(LogTemp,Warning, TEXT("INTERSECTY"));
             continue;
         }
@@ -168,7 +179,9 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
     TArray<FIntPoint>& OutGridIds,
     const TArray<FGULVector2DGroup>& InPolys,
     int32 InDimensionX,
-    int32 InDimensionY
+    int32 InDimensionY,
+    bool bClosedPolygons,
+    FGridWalkVisitCallback VisitCallback
     )
 {
     if (InDimensionX < 1 || InDimensionY < 1)
@@ -204,23 +217,34 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
             const FVector2D& P0(InPoints[i0]);
             const FVector2D& P1(InPoints[i1]);
 
-            //GenerateGridDataFromLineSegment(P0, P1, i0, i1);
-
             FIntPoint ID0(GetGridId(P0, InDimensionX, InDimensionY));
             FIntPoint ID1(GetGridId(P1, InDimensionX, InDimensionY));
 
             OutGridIds.AddUnique(ID0);
 
+            if (VisitCallback)
+            {
+                VisitCallback(ID0, P0, P1);
+            }
+
             if (ID0 != ID1)
             {
-                GridWalk(OutGridIds, P0, P1, InDimensionX, InDimensionY, true);
+                GridWalk(
+                    OutGridIds,
+                    P0,
+                    P1,
+                    InDimensionX,
+                    InDimensionY,
+                    true,
+                    VisitCallback
+                    );
             }
 
             i0 = i1;
         }
 
         // Generate grid data from last line segment (last to first points)
-        if (PointCount > 2)
+        if (bClosedPolygons && PointCount > 2)
         {
             int32 i0 = PointCount-1;
             int32 i1 = 0;
@@ -233,11 +257,22 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
 
             OutGridIds.AddUnique(ID0);
 
-            //if (! P0.Equals(P1))
+            if (VisitCallback)
+            {
+                VisitCallback(ID0, P0, P1);
+            }
+
             if (ID0 != ID1)
             {
-                //GenerateGridDataFromLineSegment(P0, P1, i0, i1);
-                GridWalk(OutGridIds, P0, P1, InDimensionX, InDimensionY, true);
+                GridWalk(
+                    OutGridIds,
+                    P0,
+                    P1,
+                    InDimensionX,
+                    InDimensionY,
+                    true,
+                    VisitCallback
+                    );
             }
         }
     }
@@ -264,21 +299,67 @@ int32 UGULGridUtility::GroupGridsByDimension(
     for (const FIntPoint& GridId : InGridIds)
     {
         FIntPoint GroupId;
-        GroupId.X = (GridId.X / GroupDimensionX);
-        GroupId.Y = (GridId.Y / GroupDimensionY);
-
-        if (GridId.X < 0 && (GridId.X % GroupDimensionX) != 0)
-        {
-            GroupId.X -= 1;
-        }
-
-        if (GridId.Y < 0 && (GridId.Y % GroupDimensionY) != 0)
-        {
-            GroupId.Y -= 1;
-        }
+        GroupId.X = FMath::FloorToInt(static_cast<float>(GridId.X) / GroupDimensionX);
+        GroupId.Y = FMath::FloorToInt(static_cast<float>(GridId.Y) / GroupDimensionY);
 
         TArray<FIntPoint>& GridIds(GroupMap.FindOrAdd(GroupId));
         GridIds.Emplace(GridId);
+    }
+
+    const int32 GroupCount = GroupMap.Num();
+
+    OutGroupIds.Reserve(GroupCount);
+    OutGridIdGroups.Reserve(GroupCount);
+
+    for (auto& DataPair : GroupMap)
+    {
+        FIntPoint& GroupId(DataPair.Get<0>());
+        TArray<FIntPoint>& GridIds(DataPair.Get<1>());
+
+        OutGroupIds.Emplace(GroupId);
+
+        OutGridIdGroups.AddDefaulted();
+        OutGridIdGroups.Last().Points = MoveTemp(GridIds);
+    }
+
+    return GroupCount;
+}
+
+int32 UGULGridUtility::GroupGridsByDimensionAndBounds(
+    TArray<FIntPoint>& OutGroupIds,
+    TArray<FGULIntPointGroup>& OutGridIdGroups,
+    const TArray<FIntPoint>& InGridIds,
+    FIntPoint GroupBoundsMin,
+    FIntPoint GroupBoundsMax,
+    int32 GroupDimensionX,
+    int32 GroupDimensionY
+    )
+{
+    if (GroupDimensionX < 1 || GroupDimensionY < 1)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GroupGridsByDimensionAndBounds() ABORTED, INVALID GROUP DIMENSION"));
+        return 0;
+    }
+    else
+    if (GroupBoundsMin == GroupBoundsMax)
+    {
+        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GroupGridsByDimensionAndBounds() ABORTED, INVALID GROUP BOUNDS"));
+        return 0;
+    }
+
+    TMap< FIntPoint, TArray<FIntPoint> > GroupMap;
+
+    for (const FIntPoint& GridId : InGridIds)
+    {
+        FIntPoint GroupId;
+        GroupId.X = FMath::FloorToInt(static_cast<float>(GridId.X) / GroupDimensionX);
+        GroupId.Y = FMath::FloorToInt(static_cast<float>(GridId.Y) / GroupDimensionY);
+
+        if (IsOnBounds(GroupId, GroupBoundsMin, GroupBoundsMax))
+        {
+            TArray<FIntPoint>& GridIds(GroupMap.FindOrAdd(GroupId));
+            GridIds.Emplace(GridId);
+        }
     }
 
     const int32 GroupCount = GroupMap.Num();
@@ -365,6 +446,65 @@ void UGULGridUtility::PointFill(
     OutPoints.Shrink();
 }
 
+void UGULGridUtility::PointFillMulti(
+    TArray<FIntPoint>& OutPoints,
+    const FIntPoint& BoundsMin,
+    const FIntPoint& BoundsMax,
+    const TArray<FIntPoint>& TargetPoints,
+    TFunction<bool(int32, FIntPoint)> VisitCallback
+    )
+{
+    const int32 Size = GetSquaredSize(BoundsMin, BoundsMax);
+
+    check(Size > 0);
+
+    TQueue<FIntPoint> VisitQueue;
+    TSet<int32> VisitedSet;
+
+    // Visit target points
+    for (const FIntPoint& TargetPoint : TargetPoints)
+    {
+        VisitQueue.Enqueue(TargetPoint);
+        VisitedSet.Emplace(GetGridIndex(TargetPoint, BoundsMin, Size));
+    }
+
+    const FIntPoint Offsets[4] = {
+        FIntPoint(-1,  0), // W
+        FIntPoint( 0, -1), // S
+        FIntPoint( 1,  0), // E
+        FIntPoint( 0,  1)  // N
+        };
+
+    // Visit target point neighbours
+    while (! VisitQueue.IsEmpty())
+    {
+        FIntPoint VisitPoint;
+        VisitQueue.Dequeue(VisitPoint);
+
+        for (int32 i=0; i<4; ++i)
+        {
+            FIntPoint NeighbourPoint(VisitPoint+Offsets[i]);
+            int32 NeighbourIndex = GetGridIndex(NeighbourPoint, BoundsMin, Size);
+
+            // Skip visited or out-of-bounds points
+            if (! IsOnBounds(NeighbourPoint, BoundsMin, BoundsMax) ||
+                VisitedSet.Contains(NeighbourIndex))
+            {
+                continue;
+            }
+
+            if (! VisitCallback || VisitCallback(NeighbourIndex, NeighbourPoint))
+            {
+                // Add point to the visited set
+                VisitedSet.Emplace(NeighbourIndex);
+                VisitQueue.Enqueue(NeighbourPoint);
+
+                OutPoints.Emplace(NeighbourPoint);
+            }
+        }
+    }
+}
+
 bool UGULGridUtility::GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray<FIntPoint>& BoundaryPoints, const FIntPoint& FillTargetPoint)
 {
     if (BoundaryPoints.Num() < 1)
@@ -409,6 +549,46 @@ bool UGULGridUtility::GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray
     }
 
     PointFill(OutPoints, BoundaryIndexSet, BoundsMin, BoundsMax, FillTargetPoint);
+    
+    return true;
+}
+
+bool UGULGridUtility::GridFillBoundsByPoints(
+    TArray<FIntPoint>& OutPoints,
+    const TArray<FIntPoint>& InTargetPoints,
+    FIntPoint BoundsMin,
+    FIntPoint BoundsMax,
+    TFunction<bool(int32, FIntPoint)> FilterCallback
+    )
+{
+    FBox2D Bounds(ForceInitToZero);
+    Bounds += FVector2D(BoundsMin.X, BoundsMin.Y);
+    Bounds += FVector2D(BoundsMax.X, BoundsMax.Y);
+
+    BoundsMin.X = FMath::RoundToInt(Bounds.Min.X);
+    BoundsMin.Y = FMath::RoundToInt(Bounds.Min.Y);
+
+    BoundsMax.X = FMath::RoundToInt(Bounds.Max.X);
+    BoundsMax.Y = FMath::RoundToInt(Bounds.Max.Y);
+
+    TArray<FIntPoint> TargetPoints = InTargetPoints.FilterByPredicate(
+    [BoundsMin, BoundsMax](const FIntPoint& TargetPoint)
+    {
+        return IsOnBounds(TargetPoint, BoundsMin, BoundsMax);
+    } );
+
+    if (TargetPoints.Num() < 1)
+    {
+        return false;
+    }
+
+    PointFillMulti(
+        OutPoints,
+        BoundsMin,
+        BoundsMax,
+        TargetPoints,
+        FilterCallback
+        );
     
     return true;
 }
