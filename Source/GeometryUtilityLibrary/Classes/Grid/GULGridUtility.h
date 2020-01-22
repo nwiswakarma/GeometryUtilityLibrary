@@ -54,6 +54,13 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
         TFunction<bool(int32, FIntPoint)> VisitCallback = nullptr
         );
 
+    static void VisitPoints(
+        const FIntPoint& BoundsMin,
+        const FIntPoint& BoundsMax,
+        const TArray<FIntPoint>& TargetPoints,
+        TFunction<bool(int32, FIntPoint, int32)> VisitCallback = nullptr
+        );
+
     inline static void GenerateBoundaryData(
         FIntPoint& BoundsMin,
         FIntPoint& BoundsMax,
@@ -68,7 +75,7 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
         int32 Stride
         );
 
-    FORCEINLINE static int32 GetSquaredSize(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax);
+    FORCEINLINE static int32 GetBoundsStride(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax);
 
 public:
 
@@ -91,6 +98,32 @@ public:
         int32 InDimensionY,
         bool bClosedPolygons = true,
         FGridWalkVisitCallback VisitCallback = nullptr
+        );
+
+    static bool GridFillBoundsByPoints(
+        TArray<FIntPoint>& OutPoints,
+        const TArray<FIntPoint>& InTargetPoints,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax,
+        TFunction<bool(int32, FIntPoint)> FilterCallback = nullptr
+        );
+
+    static void VisitPointsByPredicate(
+        const TArray<FIntPoint>& InTargetPoints,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax,
+        TFunction<bool(int32, FIntPoint, int32)> VisitCallback
+        );
+
+    static bool GenerateGridAndEdgeGroupsIntersections(
+        TMap<int32, FGULVector2DGroup>& IntersectionMap,
+        TArray<FVector2D>& IntersectEdges,
+        const TArray<FGULVector2DGroup>& InEdgeGroups,
+        const FIntPoint& GridBoundsMin,
+        const FIntPoint& GridBoundsMax,
+        const FIntPoint& GridId,
+        int32 GridIndex,
+        float IntersectRadius = KINDA_SMALL_NUMBER
         );
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Grid Walk"))
@@ -134,14 +167,6 @@ public:
 
     UFUNCTION(BlueprintCallable)
     static bool GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray<FIntPoint>& BoundaryPoints, const FIntPoint& FillTargetPoint);
-
-    static bool GridFillBoundsByPoints(
-        TArray<FIntPoint>& OutPoints,
-        const TArray<FIntPoint>& InTargetPoints,
-        FIntPoint BoundsMin,
-        FIntPoint BoundsMax,
-        TFunction<bool(int32, FIntPoint)> FilterCallback = nullptr
-        );
 
     UFUNCTION(BlueprintCallable)
     static bool GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints);
@@ -190,10 +215,9 @@ FORCEINLINE bool UGULGridUtility::IsOnBounds(const FIntPoint& Point, const FIntP
         Point.X <= BoundsMax.X && Point.Y <= BoundsMax.Y;
 }
 
-FORCEINLINE int32 UGULGridUtility::GetSquaredSize(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax)
+FORCEINLINE int32 UGULGridUtility::GetBoundsStride(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax)
 {
-    FIntPoint Extent = BoundsMax-BoundsMin;
-    return FMath::Max(Extent.X, Extent.Y)+1;
+    return (BoundsMax.X-BoundsMin.X)+1;
 }
 
 inline void UGULGridUtility::GenerateBoundaryData(
@@ -216,7 +240,7 @@ inline void UGULGridUtility::GenerateBoundaryData(
     BoundsMax.X = FMath::RoundToInt(Bounds.Max.X);
     BoundsMax.Y = FMath::RoundToInt(Bounds.Max.Y);
 
-    Size = GetSquaredSize(BoundsMin, BoundsMax);
+    Size = GetBoundsStride(BoundsMin, BoundsMax);
 }
 
 inline void UGULGridUtility::GenerateIndexSet(TSet<int32>& OutIndexSet, const TArray<FIntPoint>& InPoints, const FIntPoint& Origin, int32 Stride)

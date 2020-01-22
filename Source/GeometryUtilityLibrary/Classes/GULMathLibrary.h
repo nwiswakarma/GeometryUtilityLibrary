@@ -166,3 +166,17 @@ FORCEINLINE FIntPoint operator-(const FIntPoint& LHS, int32 RHS)
 {
 	return LHS-FIntPoint(RHS, RHS);
 }
+
+FORCEINLINE FIntPoint& operator+=(FIntPoint& LHS, int32 RHS)
+{
+    LHS.X += RHS;
+    LHS.Y += RHS;
+	return LHS;
+}
+
+FORCEINLINE FIntPoint& operator-=(FIntPoint& LHS, int32 RHS)
+{
+    LHS.X -= RHS;
+    LHS.Y -= RHS;
+	return LHS;
+}

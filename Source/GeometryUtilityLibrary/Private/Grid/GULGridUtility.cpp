@@ -390,7 +390,7 @@ void UGULGridUtility::PointFill(
     TSet<int32>* VisitedSet
     )
 {
-    const int32 Size = GetSquaredSize(BoundsMin, BoundsMax);
+    const int32 Size = GetBoundsStride(BoundsMin, BoundsMax);
     const int32 FillTargetIndex = GetGridIndex(FillTargetPoint, BoundsMin, Size);
 
     check(Size > 0);
@@ -454,7 +454,7 @@ void UGULGridUtility::PointFillMulti(
     TFunction<bool(int32, FIntPoint)> VisitCallback
     )
 {
-    const int32 Size = GetSquaredSize(BoundsMin, BoundsMax);
+    const int32 Size = GetBoundsStride(BoundsMin, BoundsMax);
 
     check(Size > 0);
 
@@ -502,6 +502,87 @@ void UGULGridUtility::PointFillMulti(
                 OutPoints.Emplace(NeighbourPoint);
             }
         }
+    }
+}
+
+void UGULGridUtility::VisitPoints(
+    const FIntPoint& BoundsMin,
+    const FIntPoint& BoundsMax,
+    const TArray<FIntPoint>& TargetPoints,
+    TFunction<bool(int32, FIntPoint, int32)> VisitCallback
+    )
+{
+    const int32 Size = GetBoundsStride(BoundsMin, BoundsMax);
+
+    check(Size > 0);
+
+    TQueue<FIntPoint> VisitQueue0;
+    TQueue<FIntPoint> VisitQueue1;
+
+    TSet<int32> VisitedSet;
+
+    // Visit target points
+    for (const FIntPoint& TargetPoint : TargetPoints)
+    {
+        int32 TargetIndex = GetGridIndex(TargetPoint, BoundsMin, Size);
+
+        if (! IsOnBounds(TargetPoint, BoundsMin, BoundsMax) ||
+            VisitedSet.Contains(TargetIndex))
+        {
+            continue;
+        }
+
+        if (! VisitCallback || VisitCallback(TargetIndex, TargetPoint, 0))
+        {
+            // Add point to the visited set
+            VisitedSet.Emplace(TargetIndex);
+            VisitQueue0.Enqueue(TargetPoint);
+        }
+    }
+
+    const FIntPoint Offsets[4] = {
+        FIntPoint(-1,  0), // W
+        FIntPoint( 0, -1), // S
+        FIntPoint( 1,  0), // E
+        FIntPoint( 0,  1)  // N
+        };
+
+    TQueue<FIntPoint>* CurVisitQueue(&VisitQueue1);
+    TQueue<FIntPoint>* NextVisitQueue(&VisitQueue0);
+    int32 Iteration = 1;
+
+    while (! NextVisitQueue->IsEmpty())
+    {
+        Swap(CurVisitQueue, NextVisitQueue);
+
+        // Visit target point neighbours
+        while (! CurVisitQueue->IsEmpty())
+        {
+            FIntPoint VisitPoint;
+            CurVisitQueue->Dequeue(VisitPoint);
+
+            for (int32 i=0; i<4; ++i)
+            {
+                FIntPoint NeighbourPoint(VisitPoint+Offsets[i]);
+                int32 NeighbourIndex = GetGridIndex(NeighbourPoint, BoundsMin, Size);
+
+                // Skip visited or out-of-bounds points
+                if (! IsOnBounds(NeighbourPoint, BoundsMin, BoundsMax) ||
+                    VisitedSet.Contains(NeighbourIndex))
+                {
+                    continue;
+                }
+
+                if (! VisitCallback || VisitCallback(NeighbourIndex, NeighbourPoint, Iteration))
+                {
+                    // Add point to the visited set
+                    VisitedSet.Emplace(NeighbourIndex);
+                    NextVisitQueue->Enqueue(NeighbourPoint);
+                }
+            }
+        }
+
+        ++Iteration;
     }
 }
 
@@ -593,6 +674,150 @@ bool UGULGridUtility::GridFillBoundsByPoints(
     return true;
 }
 
+void UGULGridUtility::VisitPointsByPredicate(
+    const TArray<FIntPoint>& InTargetPoints,
+    FIntPoint BoundsMin,
+    FIntPoint BoundsMax,
+    TFunction<bool(int32, FIntPoint, int32)> VisitCallback
+    )
+{
+    FBox2D Bounds(ForceInitToZero);
+    Bounds += FVector2D(BoundsMin.X, BoundsMin.Y);
+    Bounds += FVector2D(BoundsMax.X, BoundsMax.Y);
+
+    BoundsMin.X = FMath::RoundToInt(Bounds.Min.X);
+    BoundsMin.Y = FMath::RoundToInt(Bounds.Min.Y);
+
+    BoundsMax.X = FMath::RoundToInt(Bounds.Max.X);
+    BoundsMax.Y = FMath::RoundToInt(Bounds.Max.Y);
+
+    TArray<FIntPoint> TargetPoints = InTargetPoints.FilterByPredicate(
+    [BoundsMin, BoundsMax](const FIntPoint& TargetPoint)
+    {
+        return IsOnBounds(TargetPoint, BoundsMin, BoundsMax);
+    } );
+
+    if (TargetPoints.Num() < 1)
+    {
+        return;
+    }
+
+    VisitPoints(
+        BoundsMin,
+        BoundsMax,
+        TargetPoints,
+        VisitCallback
+        );
+}
+
+bool UGULGridUtility::GenerateGridAndEdgeGroupsIntersections(
+    TMap<int32, FGULVector2DGroup>& IntersectionMap,
+    TArray<FVector2D>& IntersectEdges,
+    const TArray<FGULVector2DGroup>& InEdgeGroups,
+    const FIntPoint& GridBoundsMin,
+    const FIntPoint& GridBoundsMax,
+    const FIntPoint& GridId,
+    int32 GridIndex,
+    float IntersectRadius
+    )
+{
+    check((GridBoundsMax-GridBoundsMin).SizeSquared() > KINDA_SMALL_NUMBER);
+
+    float Radius = FMath::Abs(IntersectRadius);
+    float RadiusSq = Radius*Radius;
+
+    FBox2D Bounds(ForceInitToZero);
+    Bounds += FVector2D(GridBoundsMin);
+    Bounds += FVector2D(GridBoundsMax);
+    Bounds = Bounds.ExpandBy(Radius);
+
+    //FVector2D SegA[4] = {
+    //    FVector2D(GridBoundsMin.X-Radius, GridBoundsMin.Y-Radius),
+    //    FVector2D(GridBoundsMax.X+Radius, GridBoundsMin.Y-Radius),
+    //    FVector2D(GridBoundsMax.X+Radius, GridBoundsMax.Y+Radius),
+    //    FVector2D(GridBoundsMin.X-Radius, GridBoundsMax.Y+Radius)
+    //    };
+
+    FVector2D SegA[4] = {
+        FVector2D(Bounds.Min.X, Bounds.Min.Y),
+        FVector2D(Bounds.Max.X, Bounds.Min.Y),
+        FVector2D(Bounds.Max.X, Bounds.Max.Y),
+        FVector2D(Bounds.Min.X, Bounds.Max.Y)
+        };
+
+    int32 LastIntersectEdgeCount = IntersectEdges.Num();
+
+    for (const FGULVector2DGroup& EdgeGroup : InEdgeGroups)
+    {
+        const TArray<FVector2D>& Points(EdgeGroup.Points);
+        const int32 PointCount = Points.Num();
+
+        for (int32 pi=0; pi<(PointCount-1); ++pi)
+        {
+            int32 i0 = pi;
+            int32 i1 = pi+1;
+
+            const FVector2D& SegB0(Points[i0]);
+            const FVector2D& SegB1(Points[i1]);
+
+            const bool bValidSegB = (SegB1-SegB0).SizeSquared() > KINDA_SMALL_NUMBER;
+
+            bool bHasIntersection = false;
+
+            // Edge segments have non-zero length
+            if (bValidSegB)
+            {
+                FVector2D ClosestP0;
+                FVector2D ClosestP1;
+
+                for (int32 i=0; i<4; ++i)
+                {
+                    bHasIntersection = UGULGeometryUtility::SegmentIntersection2D(
+                        SegA[i      ],
+                        SegA[(i+1)%4],
+                        SegB0,
+                        SegB1
+                        );
+
+                    if (bHasIntersection)
+                    {
+                        break;
+                    }
+                }
+
+                // No intersection found, check whether
+                // either of the points is inside grid bounds
+                if (! bHasIntersection &&
+                    (Bounds.IsInside(SegB0) || Bounds.IsInside(SegB1)))
+                {
+                    bHasIntersection = true;
+                }
+            }
+            // Edge segment have nearly zero length
+            else
+            {
+                FVector2D ClosestP = Bounds.GetClosestPointTo(SegB0);
+                float DistSq = (ClosestP-SegB0).SizeSquared();
+
+                if (DistSq <= RadiusSq || Bounds.IsInside(SegB0))
+                {
+                    bHasIntersection = true;
+                }
+            }
+
+            if (bHasIntersection)
+            {
+                IntersectEdges.Emplace(SegB0);
+                IntersectEdges.Emplace(SegB1);
+            }
+        }
+    }
+
+    bool bHasIntersection = IntersectEdges.Num() > LastIntersectEdgeCount;
+
+    return bHasIntersection;
+}
+
 bool UGULGridUtility::GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints)
 {
     if (BoundaryPoints.Num() < 1)
@@ -671,7 +896,7 @@ bool UGULGridUtility::GenerateIsolatedPointGroupsWithinBounds(TArray<FGULIntPoin
     BoundsMax.X = FMath::RoundToInt(Bounds.Max.X);
     BoundsMax.Y = FMath::RoundToInt(Bounds.Max.Y);
 
-    int32 Size = GetSquaredSize(BoundsMin, BoundsMax);
+    int32 Size = GetBoundsStride(BoundsMin, BoundsMax);
 
     //UE_LOG(LogTemp,Warning, TEXT("BoundsMin: %s, BoundsMax: %s, Size: %d"), *BoundsMin.ToString(), *BoundsMax.ToString(), Size);
 
