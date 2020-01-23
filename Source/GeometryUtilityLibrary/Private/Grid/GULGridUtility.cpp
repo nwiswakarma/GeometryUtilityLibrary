@@ -170,6 +170,60 @@ void UGULGridUtility::GridWalk(
             continue;
         }
 
+        //UE_LOG(LogTemp,Warning, TEXT("P0: %s, P1: %s, ID0: %s, ID1: %s, SgnX: %d, SgnY: %d"),
+        //    *P0.ToString(),
+        //    *P1.ToString(),
+        //    *ID0.ToString(),
+        //    *ID1.ToString(),
+        //    SgnX,
+        //    SgnY
+        //    );
+        //UE_LOG(LogTemp,Warning, TEXT("Bounds: %s"), *Bounds.ToString());
+        //UE_LOG(LogTemp,Warning, TEXT("SegX0: %s, SegX1: %s, SegY0: %s, SegY1: %s"),
+        //    *SegX0.ToString(),
+        //    *SegX1.ToString(),
+        //    *SegY0.ToString(),
+        //    *SegY1.ToString()
+        //    );
+
+        //UE_LOG(LogTemp,Warning, TEXT("Dist To P0: (SegX0: %f, SegX1: %f, SegY0: %f, SegY1: %f)"),
+        //    (P0-SegX0).Size(),
+        //    (P0-SegX1).Size(),
+        //    (P0-SegY0).Size(),
+        //    (P0-SegY1).Size()
+        //    );
+
+        //UE_LOG(LogTemp,Warning, TEXT("Dist To P1: (SegX0: %f, SegX1: %f, SegY0: %f, SegY1: %f)"),
+        //    (P1-SegX0).Size(),
+        //    (P1-SegX1).Size(),
+        //    (P1-SegY0).Size(),
+        //    (P1-SegY1).Size()
+        //    );
+
+        // Fallback check if segment intersection checks
+        // missed the correct final voxel
+        if ((ID0+FIntPoint(-SgnX, 0    )) == ID1 ||
+            (ID0+FIntPoint(    0, -SgnY)) == ID1)
+        {
+            ID0 = ID1;
+
+            if (bUniqueOutput)
+            {
+                OutGridIds.AddUnique(ID0);
+            }
+            else
+            {
+                OutGridIds.Emplace(ID0);
+            }
+
+            if (VisitCallback)
+            {
+                VisitCallback(ID0, P0, P1);
+            }
+
+            continue;
+        }
+
         // Check no entry
         check(false);
     }
