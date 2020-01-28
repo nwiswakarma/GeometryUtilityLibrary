@@ -30,6 +30,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GULTypes.h"
+#include "Poly/GULPolyTypes.h"
 #include "GULPolyUtilityLibrary.generated.h"
 
 class UGULPolyGridObject;
@@ -239,6 +240,10 @@ public:
 
     static void SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
     FORCEINLINE static void SubdividePolylines(TArray<FVector2D>& Points);
+
+    // Poly Grouping
+
+    void GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)

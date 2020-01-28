@@ -495,6 +495,106 @@ void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, co
     OutPoints.Emplace(InPoints.Last());
 }
 
+void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    const int32 InPolyCount = PolyGroups.Num();
+
+    // Generate candidate indices
+
+    TArray<int32> CandidateIndices;
+    CandidateIndices.SetNumUninitialized(InPolyCount);
+
+    for (int32 PolyIt=0; PolyIt<InPolyCount; ++PolyIt)
+    {
+        // Only generate index for valid poly
+        if (PolyGroups[PolyIt].Points.Num() >= 3)
+        {
+            CandidateIndices[PolyIt] = PolyIt;
+        }
+    }
+
+    TArray<int32> OuterPolyIndices;
+    TMap<int32, FGULIndexedPolyGroup> InitialGroupMap;
+
+    for (int32 i=0; i<CandidateIndices.Num(); ++i)
+    {
+        int32 PolyIndex = CandidateIndices[i];
+        const TArray<FVector2D>& Points(PolyGroups[PolyIndex].Points);
+
+        FVector2D InnerPoint(Points[0]);
+        bool bIsOuter = true;
+
+        // Find for bounding poly if any
+        for (int32 j=0; j<CandidateIndices.Num(); ++j)
+        {
+            // Skip checking the same poly
+            if (j == i)
+            {
+                continue;
+            }
+
+            int32 BoundingPolyIndex = CandidateIndices[j];
+            const TArray<FVector2D>& BoundingPoints(PolyGroups[BoundingPolyIndex].Points);
+
+            // Bounding poly found, map the connection
+            if (IsPointOnPoly(InnerPoint, BoundingPoints))
+            {
+                FGULIndexedPolyGroup& PolyGroup(InitialGroupMap.FindOrAdd(BoundingPolyIndex));
+                PolyGroup.OuterPolyIndex = BoundingPolyIndex;
+                PolyGroup.InnerPolyIndices.Emplace(PolyIndex);
+                bIsOuter = false;
+                break;
+            }
+        }
+
+        if (bIsOuter)
+        {
+            OuterPolyIndices.Emplace(PolyIndex);
+        }
+    }
+
+    while (OuterPolyIndices.Num() > 0)
+    {
+        int32 OuterPolyIndex = OuterPolyIndices.Pop();
+
+        // Create new outer poly group
+
+        OutIndexedPolyGroups.AddDefaulted();
+        FGULIndexedPolyGroup& OuterPolyGroup(OutIndexedPolyGroups.Last());
+
+        OuterPolyGroup.OuterPolyIndex = OuterPolyIndex;
+
+        // Find inner poly (outer poly holes)
+
+        FGULIndexedPolyGroup* MappedOuterPoly(InitialGroupMap.Find(OuterPolyIndex));
+
+        // Outer poly is not mapped, no inner poly, continue
+        if (! MappedOuterPoly)
+        {
+            continue;
+        }
+
+        // Move mapped inner poly indices
+        OuterPolyGroup.InnerPolyIndices = MoveTemp(MappedOuterPoly->InnerPolyIndices);
+
+        // Remove mapped outer poly index
+        InitialGroupMap.Remove(OuterPolyIndex);
+
+        // Find inner poly within current mapped inner poly
+        // and add them as new outer poly
+        for (int32 InnerPolyIndex : OuterPolyGroup.InnerPolyIndices)
+        {
+            FGULIndexedPolyGroup* MappedInnerPoly(InitialGroupMap.Find(InnerPolyIndex));
+
+            if (MappedInnerPoly)
+            {
+                OuterPolyIndices.Append(MappedInnerPoly->InnerPolyIndices);
+                InitialGroupMap.Remove(InnerPolyIndex);
+            }
+        }
+    }
+}
+
 UGULPolyGridObject* UGULPolyUtilityLibrary::K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY)
 {
     UGULPolyGridObject* PolyGrid = nullptr;
