@@ -27,6 +27,7 @@
 
 #include "Poly/GULPolyUtilityLibrary.h"
 #include "Poly/GULPolyGridObject.h"
+#include "Geom/GULGeometryUtilityLibrary.h"
 #include "GULMathLibrary.h"
 
 TArray<FVector2D> UGULPolyUtilityLibrary::K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale)
@@ -127,19 +128,18 @@ void UGULPolyUtilityLibrary::FlipPoints(TArray<FVector2D>& Points, const FVector
 
 bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly)
 {
-    TArray<FIntPoint> IntPoly;
     FIntPoint pt = UGULMathLibrary::ScaleToIntPoint(Point);
-
-    UGULMathLibrary::ScaleToIntPoint(IntPoly, Poly);
 
     //returns 0 if false, +1 if true, -1 if pt ON polygon boundary
     int32 result = 0;
-    int32 cnt = IntPoly.Num();
+    int32 cnt = Poly.Num();
     if (cnt < 3) return false; //return 0;
-    FIntPoint ip = IntPoly[0];
+    FIntPoint ip = UGULMathLibrary::ScaleToIntPoint(Poly[0]);
     for(int32 i = 1; i <= cnt; ++i)
     {
-        FIntPoint ipNext = (i == cnt ? IntPoly[0] : IntPoly[i]);
+        FIntPoint ipNext = (i==cnt)
+            ? UGULMathLibrary::ScaleToIntPoint(Poly[0])
+            : UGULMathLibrary::ScaleToIntPoint(Poly[i]);
         if (ipNext.Y == pt.Y)
         {
             if ((ipNext.X == pt.X) || (ip.Y == pt.Y && 
@@ -173,6 +173,45 @@ bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<
     }
 
     return (result != 0);
+}
+
+bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<FGULIndexedPolyGroup>& IndexGroups, const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    for (const FGULIndexedPolyGroup& IndexGroup : IndexGroups)
+    {
+        if (! IndexGroup.IsValidIndexGroup(PolyGroups))
+        {
+            continue;
+        }
+
+        if (IsPointOnPoly(Point, PolyGroups[IndexGroup.OuterPolyIndex].Points))
+        {
+            if (IndexGroup.InnerPolyIndices.Num() > 0)
+            {
+                bool bIsWithinInnerPoly = false;
+
+                for (int32 InnerPolyIndex : IndexGroup.InnerPolyIndices)
+                {
+                    if (IsPointOnPoly(Point, PolyGroups[InnerPolyIndex].Points))
+                    {
+                        bIsWithinInnerPoly = true;
+                        break;
+                    }
+                }
+
+                if (! bIsWithinInnerPoly)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 void UGULPolyUtilityLibrary::FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)
@@ -495,6 +534,17 @@ void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, co
     OutPoints.Emplace(InPoints.Last());
 }
 
+void UGULPolyUtilityLibrary::FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups)
+{
+    for (FGULVector2DGroup& Poly : InOutPolyGroups)
+    {
+        if (! GetOrientation(Poly.Points))
+        {
+            Algo::Reverse(Poly.Points);
+        }
+    }
+}
+
 void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups)
 {
     const int32 InPolyCount = PolyGroups.Num();
@@ -521,8 +571,14 @@ void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGro
         int32 PolyIndex = CandidateIndices[i];
         const TArray<FVector2D>& Points(PolyGroups[PolyIndex].Points);
 
+        // Poly orientation is positive, Assign as outer poly
+        if (GetOrientation(Points))
+        {
+            OuterPolyIndices.Emplace(PolyIndex);
+            continue;
+        }
+
         FVector2D InnerPoint(Points[0]);
-        bool bIsOuter = true;
 
         // Find for bounding poly if any
         for (int32 j=0; j<CandidateIndices.Num(); ++j)
@@ -542,17 +598,12 @@ void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGro
                 FGULIndexedPolyGroup& PolyGroup(InitialGroupMap.FindOrAdd(BoundingPolyIndex));
                 PolyGroup.OuterPolyIndex = BoundingPolyIndex;
                 PolyGroup.InnerPolyIndices.Emplace(PolyIndex);
-                bIsOuter = false;
                 break;
             }
         }
-
-        if (bIsOuter)
-        {
-            OuterPolyIndices.Emplace(PolyIndex);
-        }
     }
 
+    // Assign mapped inner poly to outer poly
     while (OuterPolyIndices.Num() > 0)
     {
         int32 OuterPolyIndex = OuterPolyIndices.Pop();
@@ -592,6 +643,80 @@ void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGro
                 InitialGroupMap.Remove(InnerPolyIndex);
             }
         }
+    }
+
+    // Move inner poly to the innermost outer poly
+    for (int32 pi0=0; pi0<OutIndexedPolyGroups.Num(); ++pi0)
+    {
+        FGULIndexedPolyGroup& IndexGroup0(OutIndexedPolyGroups[pi0]);
+        int32 OuterIndex0 = IndexGroup0.OuterPolyIndex;
+
+        const TArray<FVector2D>& OuterPoly0(PolyGroups[OuterIndex0].Points);
+        const FVector2D& OuterPoint0(OuterPoly0[0]);
+
+        for (int32 pi1=0; pi1<OutIndexedPolyGroups.Num(); ++pi1)
+        {
+            // Skip checking the same poly
+            if (pi1 == pi0)
+            {
+                continue;
+            }
+
+            FGULIndexedPolyGroup& IndexGroup1(OutIndexedPolyGroups[pi1]);
+            TArray<int32>& InnerIndices(IndexGroup1.InnerPolyIndices);
+            int32 OuterIndex1 = IndexGroup1.OuterPolyIndex;
+
+            // OuterPoly0 is not within OuterPoly1, skip
+            if (! IsPointOnPoly(OuterPoint0, PolyGroups[OuterIndex1].Points))
+            {
+                continue;
+            }
+
+            // OuterPoly0 is within OuterPoly1, move any OuterPoly0 inner poly
+            // that is within OuterPoly1 as OuterPoly1 inner poly
+
+            InnerIndices.RemoveAll(
+                [&PolyGroups, &IndexGroup0, &OuterPoly0](int32 InnerIndex)
+                {
+                    bool bMoveInner = IsPointOnPoly(
+                        PolyGroups[InnerIndex].Points[0],
+                        OuterPoly0
+                        );
+
+                    if (bMoveInner)
+                    {
+                        IndexGroup0.InnerPolyIndices.Emplace(InnerIndex);
+                    }
+
+                    return bMoveInner;
+                } );
+        }
+    }
+}
+
+void UGULPolyUtilityLibrary::ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition)
+{
+    // Skip invalid index group
+    if (! InIndexedPolyGroup.IsValidIndexGroup(InPolyGroups))
+    {
+        return;
+    }
+
+    UGULGeometryUtility::ConvertVector2DGroupToVectorGroup(
+        OutVectorGroup,
+        InPolyGroups[InIndexedPolyGroup.OuterPolyIndex],
+        ZPosition
+        );
+
+    const TArray<int32>& InnerPolyIndices(InIndexedPolyGroup.InnerPolyIndices);
+
+    for (int32 i=0; i<InnerPolyIndices.Num(); ++i)
+    {
+        UGULGeometryUtility::ConvertVector2DGroupToVectorGroup(
+            OutVectorGroup,
+            InPolyGroups[InnerPolyIndices[i]],
+            ZPosition
+            );
     }
 }
 

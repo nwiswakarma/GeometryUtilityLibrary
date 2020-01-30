@@ -118,6 +118,15 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Subdivide Polylines"))
     static void K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Fix Poly Groups Orientations"))
+    static void K2_FixOrientations(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Group Poly Hierarchy (Even Odd)"))
+    static void K2_GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Indexed Poly Groups To Vector Groups"))
+    static void K2_ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition = 0.f);
+
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Grid Object From Poly"))
     static UGULPolyGridObject* K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY);
 
@@ -135,6 +144,7 @@ public:
     // Find Point On Poly
 
     static bool IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
+    static bool IsPointOnPoly(const FVector2D& Point, const TArray<FGULIndexedPolyGroup>& IndexGroups, const TArray<FGULVector2DGroup>& PolyGroups);
 
     inline static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
     {
@@ -243,7 +253,9 @@ public:
 
     // Poly Grouping
 
-    void GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
+    static void FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups);
+    static void GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
+    static void ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -279,6 +291,29 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_CollapsePointAngles(TArra
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints)
 {
     SubdividePolylines(OutPoints, InPoints);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FixOrientations(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups)
+{
+    OutPolyGroups = InPolyGroups;
+    FixOrientations(OutPolyGroups);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    GroupPolyHierarchyEvenOdd(OutIndexedPolyGroups, PolyGroups);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition)
+{
+    OutVectorGroup.Vectors.Reset();
+
+    ConvertIndexedPolyGroupToVectorGroup(
+        OutVectorGroup, 
+        InIndexedPolyGroup, 
+        InPolyGroups,
+        ZPosition
+        );
 }
 
 inline bool UGULPolyUtilityLibrary::IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative)

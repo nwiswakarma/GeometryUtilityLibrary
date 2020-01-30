@@ -25,41 +25,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 // 
 
-#pragma once
+#include "PDS/GULPDSUtility.h"
+#include "PDS/GULPoissonDiscSampler.h"
 
-#include "CoreMinimal.h"
-#include "GULTypes.h"
-#include "GULPolyTypes.generated.h"
-
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULIndexedPolyGroup
+void UGULPDSUtility::GeneratePoints(TArray<FVector2D>& OutPoints, FBox2D Bounds, int32 RandomSeed, float PointRadius, int32 KValue)
 {
-    GENERATED_BODY()
+    OutPoints.Reset();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int32 OuterPolyIndex;
+    FGULPoissonDiscSampler Sampler(Bounds, PointRadius, KValue);
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TArray<int32> InnerPolyIndices;
-
-    inline bool IsValidIndexGroup(const TArray<FGULVector2DGroup>& PolyGroups) const
+    if (Sampler.HasValidConfig())
     {
-        if (PolyGroups.IsValidIndex(OuterPolyIndex))
-        {
-            bool bIsValidIndexGroup = true;
-
-            for (int32 InnerPolyIndex : InnerPolyIndices)
-            {
-                if (! PolyGroups.IsValidIndex(InnerPolyIndex))
-                {
-                    bIsValidIndexGroup = false;
-                    break;
-                }
-            }
-
-            return bIsValidIndexGroup;
-        }
-
-        return false;
+        Sampler.GeneratePoints(OutPoints, RandomSeed);
     }
-};
+}

@@ -28,38 +28,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GULTypes.h"
-#include "GULPolyTypes.generated.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "GULPDSUtility.generated.h"
 
-USTRUCT(BlueprintType)
-struct GEOMETRYUTILITYLIBRARY_API FGULIndexedPolyGroup
+UCLASS()
+class GEOMETRYUTILITYLIBRARY_API UGULPDSUtility : public UBlueprintFunctionLibrary
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int32 OuterPolyIndex;
+public:
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TArray<int32> InnerPolyIndices;
-
-    inline bool IsValidIndexGroup(const TArray<FGULVector2DGroup>& PolyGroups) const
-    {
-        if (PolyGroups.IsValidIndex(OuterPolyIndex))
-        {
-            bool bIsValidIndexGroup = true;
-
-            for (int32 InnerPolyIndex : InnerPolyIndices)
-            {
-                if (! PolyGroups.IsValidIndex(InnerPolyIndex))
-                {
-                    bIsValidIndexGroup = false;
-                    break;
-                }
-            }
-
-            return bIsValidIndexGroup;
-        }
-
-        return false;
-    }
+    UFUNCTION(BlueprintCallable)
+    static void GeneratePoints(TArray<FVector2D>& OutPoints, FBox2D Bounds, int32 RandomSeed = 1337, float PointRadius = .1f, int32 KValue = 25);
 };

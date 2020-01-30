@@ -1084,3 +1084,54 @@ void UGULGridUtility::GenerateIsolatedGridsOnPoly(
         }
     }
 }
+
+void UGULGridUtility::GenerateIsolatedGridsOnPoly(
+    TArray<FIntPoint>& GridIds,
+    const TArray<FIntPoint>& InBoundaryPoints,
+    const TArray<FGULIndexedPolyGroup>& InIndexGroups,
+    const TArray<FGULVector2DGroup>& InPolyGroups,
+    int32 GridSize,
+    FIntPoint BoundsMin,
+    FIntPoint BoundsMax
+    )
+{
+    GridIds.Reset();
+
+    TArray<FGULIntPointGroup> IsolatedPointGroups;
+
+    if (BoundsMin.X < BoundsMax.X && BoundsMin.Y < BoundsMax.Y)
+    {
+        UGULGridUtility::GenerateIsolatedPointGroupsWithinBounds(
+            IsolatedPointGroups,
+            InBoundaryPoints,
+            BoundsMin,
+            BoundsMax
+            );
+    }
+    else
+    {
+        UGULGridUtility::GenerateIsolatedPointGroups(
+            IsolatedPointGroups,
+            InBoundaryPoints
+            );
+    }
+
+    for (FGULIntPointGroup& PointGroup : IsolatedPointGroups)
+    {
+        if (PointGroup.Points.Num() < 1)
+        {
+            continue;
+        }
+
+        FVector2D ReferencePoint;
+        ReferencePoint.X = PointGroup.Points[0].X*GridSize;
+        ReferencePoint.Y = PointGroup.Points[0].Y*GridSize;
+        ReferencePoint.X += static_cast<float>(GridSize) * .5f;
+        ReferencePoint.Y += static_cast<float>(GridSize) * .5f;
+
+        if (UGULPolyUtilityLibrary::IsPointOnPoly(ReferencePoint, InIndexGroups, InPolyGroups))
+        {
+            GridIds.Append(PointGroup.Points);
+        }
+    }
+}

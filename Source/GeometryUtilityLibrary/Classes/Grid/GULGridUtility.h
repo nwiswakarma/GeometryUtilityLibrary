@@ -30,6 +30,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GULTypes.h"
+#include "Poly/GULPolyTypes.h"
 #include "GULGridUtility.generated.h"
 
 UCLASS()
@@ -183,6 +184,16 @@ public:
     static void GenerateIsolatedGridsOnPoly(
         TArray<FIntPoint>& GridIds,
         const TArray<FIntPoint>& InBoundaryPoints,
+        const TArray<FGULVector2DGroup>& InPolyGroups,
+        int32 GridSize,
+        FIntPoint BoundsMin,
+        FIntPoint BoundsMax
+        );
+
+    static void GenerateIsolatedGridsOnPoly(
+        TArray<FIntPoint>& GridIds,
+        const TArray<FIntPoint>& InBoundaryPoints,
+        const TArray<FGULIndexedPolyGroup>& InIndexGroups,
         const TArray<FGULVector2DGroup>& InPolyGroups,
         int32 GridSize,
         FIntPoint BoundsMin,
