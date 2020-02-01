@@ -83,6 +83,13 @@ public:
         const FVector2D& SegmentB1
         );
 
+    FORCEINLINE_DEBUGGABLE static bool SegmentIntersection2DFast(
+        const FVector2D& SegmentA0,
+        const FVector2D& SegmentA1,
+        const FVector2D& SegmentB0,
+        const FVector2D& SegmentB1
+        );
+
     static void ShortestSegment2DBetweenSegment2DSafe(
         const FVector2D& A1,
         const FVector2D& B1,
@@ -120,9 +127,11 @@ inline bool UGULGeometryUtility::SegmentIntersection2D(
 {
     const FVector2D VectorA = SegmentA1 - SegmentA0;
     const FVector2D VectorB = SegmentB1 - SegmentB0;
+    const FVector2D BA = SegmentA0 - SegmentB0;
 
-    const float S = (-VectorA.Y * (SegmentA0.X - SegmentB0.X) + VectorA.X * (SegmentA0.Y - SegmentB0.Y)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
-    const float T = ( VectorB.X * (SegmentA0.Y - SegmentB0.Y) - VectorB.Y * (SegmentA0.X - SegmentB0.X)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+    const float L = 1.f / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+    const float S = (-VectorA.Y * BA.X + VectorA.X * BA.Y) * L;
+    const float T = ( VectorB.X * BA.Y - VectorB.Y * BA.X) * L;
 
     const bool bIntersects = (S >= 0 && S <= 1 && T >= 0 && T <= 1);
 
@@ -172,6 +181,24 @@ FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::SegmentIntersection2D(
         OutIntersectionPoint,
         OutT
         );
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::SegmentIntersection2DFast(
+    const FVector2D& SegmentA0,
+    const FVector2D& SegmentA1,
+    const FVector2D& SegmentB0,
+    const FVector2D& SegmentB1
+    )
+{
+    const FVector2D VectorA = SegmentA1 - SegmentA0;
+    const FVector2D VectorB = SegmentB1 - SegmentB0;
+    const FVector2D BA = SegmentA0 - SegmentB0;
+
+    const float L = 1.f / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+    const float S = (-VectorA.Y * BA.X + VectorA.X * BA.Y) * L;
+    const float T = ( VectorB.X * BA.Y - VectorB.Y * BA.X) * L;
+
+    return (S >= 0.f && S <= 1.f && T >= 0.f && T <= 1.f);
 }
 
 FORCEINLINE float UGULGeometryUtility::PointDistToSegment2D(const FVector2D& Point, const FVector2D& StartPoint, const FVector2D& EndPoint)
