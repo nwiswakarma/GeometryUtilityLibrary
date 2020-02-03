@@ -30,6 +30,14 @@
 #include "CoreMinimal.h"
 #include "GULTypes.generated.h"
 
+enum EGULBox2DClip
+{
+   B2DCLIP_B = 1, // Bottom
+   B2DCLIP_T = 2, // Top
+   B2DCLIP_L = 4, // Left
+   B2DCLIP_R = 8  // Right
+};
+
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULIntGroup
 {

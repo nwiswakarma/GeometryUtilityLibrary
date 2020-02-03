@@ -77,6 +77,8 @@ public:
 
     inline static void GenerateIndexRange(TArray<int32>& OutIndices, int32 IndexStart = 0, int32 IndexCount = 1);
 
+    FORCEINLINE_DEBUGGABLE static uint8 GetBox2DClipCode(const FVector2D& Point, const FBox2D& Bounds);
+
     inline static bool SegmentIntersection2D(
         const FVector2D& SegmentA0,
         const FVector2D& SegmentA1,
@@ -108,6 +110,48 @@ public:
         const FVector2D& SegmentB1
         );
 
+    FORCEINLINE_DEBUGGABLE static bool IsInsideBounds(
+        const FVector2D& Point,
+        const FBox2D& Bounds,
+        EGULBox2DClip ClipCode
+        );
+
+    FORCEINLINE_DEBUGGABLE static FVector2D IntersectBounds(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FBox2D& Bounds,
+        EGULBox2DClip ClipCode
+        );
+
+    inline static bool SegmentBoundsIntersection2D(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FBox2D& Bounds,
+        FVector2D& Intersection
+        );
+
+    inline static bool SegmentBoundsIntersection2D(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FBox2D& Bounds,
+        uint8 ClipCode,
+        FVector2D& Intersection
+        );
+
+    FORCEINLINE_DEBUGGABLE static bool SegmentBoundsIntersection2DInner(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FBox2D& Bounds,
+        FVector2D& Intersection
+        );
+
+    FORCEINLINE_DEBUGGABLE static bool SegmentBoundsIntersection2DOuter(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FBox2D& Bounds,
+        FVector2D& Intersection
+        );
+
     static void ShortestSegment2DBetweenSegment2DSafe(
         const FVector2D& A1,
         const FVector2D& B1,
@@ -133,6 +177,21 @@ public:
 };
 
 // Inlined Functions
+
+FORCEINLINE_DEBUGGABLE uint8 UGULGeometryUtility::GetBox2DClipCode(const FVector2D& Point, const FBox2D& Bounds)
+{
+  uint8 Code = 0;
+
+  if (Point.Y < Bounds.Min.Y) Code |= EGULBox2DClip::B2DCLIP_T;
+  else
+  if (Point.Y > Bounds.Max.Y) Code |= EGULBox2DClip::B2DCLIP_B;
+
+  if (Point.X < Bounds.Min.X) Code |= EGULBox2DClip::B2DCLIP_L;
+  else
+  if (Point.X > Bounds.Max.X) Code |= EGULBox2DClip::B2DCLIP_R;
+
+  return Code;
+}
 
 inline bool UGULGeometryUtility::SegmentIntersection2D(
     const FVector2D& SegmentA0,
@@ -217,6 +276,248 @@ FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::SegmentIntersection2DFast(
     const float T = ( VectorB.X * BA.Y - VectorB.Y * BA.X) * L;
 
     return (S >= 0.f && S <= 1.f && T >= 0.f && T <= 1.f);
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::IsInsideBounds(
+    const FVector2D& Point,
+    const FBox2D& Bounds,
+    EGULBox2DClip ClipCode
+    )
+{
+    switch (ClipCode)
+    {
+        case EGULBox2DClip::B2DCLIP_B: return (Point.Y < Bounds.Min.Y); break;
+        case EGULBox2DClip::B2DCLIP_T: return (Point.Y > Bounds.Max.Y); break;
+        case EGULBox2DClip::B2DCLIP_L: return (Point.X < Bounds.Min.X); break;
+        case EGULBox2DClip::B2DCLIP_R: return (Point.X > Bounds.Max.X); break;
+        default: return false; break;
+    }
+    return false;
+}
+
+FORCEINLINE_DEBUGGABLE FVector2D UGULGeometryUtility::IntersectBounds(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FBox2D& Bounds,
+    EGULBox2DClip ClipCode
+    )
+{
+    FVector2D P01 = Point1-Point0;
+
+    switch (ClipCode)
+    {
+        case EGULBox2DClip::B2DCLIP_B:
+            return FVector2D(
+                Point0.X + P01.X * (Bounds.Min.Y - Point0.Y) / P01.Y,
+                Bounds.Min.Y
+                );
+            break;
+
+        case EGULBox2DClip::B2DCLIP_T:
+            return FVector2D(
+                Point0.X + P01.X * (Bounds.Max.Y - Point0.Y) / P01.Y,
+                Bounds.Max.Y
+                );
+            break;
+
+        case EGULBox2DClip::B2DCLIP_L:
+            return FVector2D(
+                Bounds.Min.X,
+                Point0.Y + P01.Y * (Bounds.Min.X - Point0.X) / P01.X
+                );
+            break;
+
+        case EGULBox2DClip::B2DCLIP_R:
+            return FVector2D(
+                Bounds.Max.X,
+                Point0.Y + P01.Y * (Bounds.Max.X - Point0.X) / P01.X
+                );
+            break;
+
+        default: return FVector2D(); break;
+    }
+
+    return FVector2D();
+}
+
+inline bool UGULGeometryUtility::SegmentBoundsIntersection2D(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FBox2D& Bounds,
+    FVector2D& Intersection
+    )
+{
+    uint8 PCode0 = GetBox2DClipCode(Point0, Bounds);
+    uint8 PCode1 = GetBox2DClipCode(Point1, Bounds);
+
+    // Both points are on the same side or are inside bounds, return false
+    if (PCode0 == PCode1)
+    {
+        return false;
+    }
+
+    uint8 ClipCode = PCode0 ^ PCode1;
+    FVector2D P01 = Point1 - Point0;
+
+    check(ClipCode != 0);
+
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_T) == EGULBox2DClip::B2DCLIP_T)
+    {
+       Intersection.X = Point0.X + P01.X * (Bounds.Min.Y - Point0.Y) / P01.Y;
+       Intersection.Y = Bounds.Min.Y;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+    else
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_B) == EGULBox2DClip::B2DCLIP_B)
+    {
+       Intersection.X = Point0.X + P01.X * (Bounds.Max.Y - Point0.Y) / P01.Y;
+       Intersection.Y = Bounds.Max.Y;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_R) == EGULBox2DClip::B2DCLIP_R)
+    {
+       Intersection.X = Bounds.Max.X;
+       Intersection.Y = Point0.Y + P01.Y * (Bounds.Max.X - Point0.X) / P01.X;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+    else
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_L) == EGULBox2DClip::B2DCLIP_L)
+    {
+       Intersection.X = Bounds.Min.X;
+       Intersection.Y = Point0.Y + P01.Y * (Bounds.Min.X - Point0.X) / P01.X;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+
+    return false;
+}
+
+inline bool UGULGeometryUtility::SegmentBoundsIntersection2D(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FBox2D& Bounds,
+    uint8 ClipCode,
+    FVector2D& Intersection
+    )
+{
+    if (ClipCode == 0)
+    {
+        return false;
+    }
+
+    FVector2D P01 = Point1 - Point0;
+
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_T) != 0)
+    {
+       Intersection.X = Point0.X + P01.X * (Bounds.Min.Y - Point0.Y) / P01.Y;
+       Intersection.Y = Bounds.Min.Y;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+    else
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_B) != 0)
+    {
+       Intersection.X = Point0.X + P01.X * (Bounds.Max.Y - Point0.Y) / P01.Y;
+       Intersection.Y = Bounds.Max.Y;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_R) != 0)
+    {
+       Intersection.X = Bounds.Max.X;
+       Intersection.Y = Point0.Y + P01.Y * (Bounds.Max.X - Point0.X) / P01.X;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+    else
+    if ((ClipCode & EGULBox2DClip::B2DCLIP_L) != 0)
+    {
+       Intersection.X = Bounds.Min.X;
+       Intersection.Y = Point0.Y + P01.Y * (Bounds.Min.X - Point0.X) / P01.X;
+
+       if (GetBox2DClipCode(Intersection, Bounds) == 0)
+       {
+           return true;
+       }
+    }
+
+    return false;
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::SegmentBoundsIntersection2DInner(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FBox2D& Bounds,
+    FVector2D& Intersection
+    )
+{
+    uint8 PCode0 = GetBox2DClipCode(Point0, Bounds);
+    uint8 PCode1 = GetBox2DClipCode(Point1, Bounds);
+
+    // Both points are on the same side or are inside bounds, return false
+    if (PCode0 == PCode1)
+    {
+        return false;
+    }
+
+    return SegmentBoundsIntersection2D(
+        Point0,
+        Point1,
+        Bounds,
+        (PCode0 ^ PCode1) & PCode0,
+        Intersection
+        );
+}
+
+FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::SegmentBoundsIntersection2DOuter(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FBox2D& Bounds,
+    FVector2D& Intersection
+    )
+{
+    uint8 PCode0 = GetBox2DClipCode(Point0, Bounds);
+    uint8 PCode1 = GetBox2DClipCode(Point1, Bounds);
+
+    // Both points are on the same side or are inside bounds, return false
+    if (PCode0 == PCode1)
+    {
+        return false;
+    }
+
+    return SegmentBoundsIntersection2D(
+        Point0,
+        Point1,
+        Bounds,
+        (PCode0 ^ PCode1) & PCode1,
+        Intersection
+        );
 }
 
 FORCEINLINE float UGULGeometryUtility::PointDistToSegment2D(const FVector2D& Point, const FVector2D& StartPoint, const FVector2D& EndPoint)

@@ -121,6 +121,9 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Subdivide Polylines"))
     static void K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Clip Polylines To Bounds"))
+    static void K2_ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds);
+
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Fix Poly Groups Orientations"))
     static void K2_FixOrientations(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups);
 
@@ -129,12 +132,6 @@ public:
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Indexed Poly Groups To Vector Groups"))
     static void K2_ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition = 0.f);
-
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Grid Object From Poly"))
-    static UGULPolyGridObject* K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY);
-
-    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Grid Object From Point Indices"))
-    static UGULPolyGridObject* K2_GenerateGridObjectFromPointIndices(UObject* Outer, const TArray<FVector2D>& PolyPoints, const TArray<int32>& Indices, int32 DimensionX, int32 DimensionY);
 
     // Points Utility
 
@@ -261,6 +258,10 @@ public:
     static void FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups);
     static void GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
     static void ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition);
+
+    // Poly Clip
+
+    static void ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -301,6 +302,11 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_CollapsePointAngles(TArra
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints)
 {
     SubdividePolylines(OutPoints, InPoints);
+}
+
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds)
+{
+    ClipBounds(OutPoints, InPoints, InBounds);
 }
 
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FixOrientations(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups)

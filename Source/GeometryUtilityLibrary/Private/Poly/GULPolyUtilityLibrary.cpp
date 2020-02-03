@@ -720,42 +720,140 @@ void UGULPolyUtilityLibrary::ConvertIndexedPolyGroupToVectorGroup(FGULVectorGrou
     }
 }
 
-UGULPolyGridObject* UGULPolyUtilityLibrary::K2_GenerateGridObjectFromPoly(UObject* Outer, const TArray<FVector2D>& PolyPoints, int32 DimensionX, int32 DimensionY)
+void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds)
 {
-    UGULPolyGridObject* PolyGrid = nullptr;
+    OutPoints.Reset();
 
-    if (DimensionX < 1 || DimensionY < 1)
+    if (InPoints.Num() < 3 ||
+        InBounds.Min.X > InBounds.Max.X ||
+        InBounds.Min.Y > InBounds.Max.Y
+        )
     {
-        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGeneratorLibrary::K2_GenerateGridObjectFromPoly() ABORTED, INVALID DIMENSION"));
-        return PolyGrid;
+        return;
     }
 
-    PolyGrid = NewObject<UGULPolyGridObject>(Outer);
+#if 0
+#endif
 
-    if (IsValid(PolyGrid))
+    TArray<FVector2D> ClipPoints0;
+    TArray<FVector2D> ClipPoints1(InPoints);
+
+    // Ensure open poly (first point is different from the last)
+    if (ClipPoints1[0].Equals(ClipPoints1.Last()))
     {
-        PolyGrid->GenerateFromPolyPoints(PolyPoints, DimensionX, DimensionY);
+        ClipPoints1.Pop();
     }
 
-    return PolyGrid;
-}
-
-UGULPolyGridObject* UGULPolyUtilityLibrary::K2_GenerateGridObjectFromPointIndices(UObject* Outer, const TArray<FVector2D>& PolyPoints, const TArray<int32>& Indices, int32 DimensionX, int32 DimensionY)
-{
-    UGULPolyGridObject* PolyGrid = nullptr;
-
-    if (DimensionX < 1 || DimensionY < 1)
+    for (int32 s=0; s<4; ++s)
     {
-        UE_LOG(LogGUL,Warning, TEXT("UGULPolyGeneratorLibrary::K2_GenerateGridObjectFromPointIndices() ABORTED, INVALID DIMENSION"));
-        return PolyGrid;
+        ClipPoints0 = MoveTemp(ClipPoints1);
+        ClipPoints1 = TArray<FVector2D>();
+
+        for (int32 i=0; i<ClipPoints0.Num(); ++i)
+        {
+            UE_LOG(LogTemp,Warning, TEXT("P[%d]: %s"),
+                i,
+                *ClipPoints0[i].ToString()
+                );
+        }
+
+        const int32 PointCount = ClipPoints0.Num();
+
+        if (PointCount < 3)
+        {
+            return;
+        }
+
+        ClipPoints1.Reserve(PointCount);
+
+        const EGULBox2DClip ClipCode = static_cast<EGULBox2DClip>(1 << s);
+
+        UE_LOG(LogTemp,Warning, TEXT("ClipCode: %u"), ClipCode);
+
+        FVector2D P0;
+        FVector2D P1(ClipPoints0[PointCount-1]);
+
+        bool T0;
+        bool T1 = UGULGeometryUtility::IsInsideBounds(P1, InBounds, ClipCode);
+
+        for (int32 i=0; i<PointCount; ++i)
+        {
+            P0 = P1;
+            P1 = ClipPoints0[i];
+
+            // Skip coincident edge
+            if ((P1-P0).SizeSquared() < KINDA_SMALL_NUMBER)
+            {
+                continue;
+            }
+
+            T0 = T1;
+            T1 = UGULGeometryUtility::IsInsideBounds(P1, InBounds, ClipCode);
+
+            UE_LOG(LogTemp,Warning, TEXT("T0: %d, T1: %d"), T0, T1);
+
+            // Points are on different clip side, add intersection
+            if (T0 != T1)
+            {
+                ClipPoints1.Emplace( UGULGeometryUtility::IntersectBounds(
+                    P0,
+                    P1,
+                    InBounds,
+                    ClipCode
+                    ) );
+
+                UE_LOG(LogTemp,Warning, TEXT("INTERSECT: %s"),
+                    *ClipPoints1.Last().ToString()
+                    );
+            }
+
+            // Point is within clip bounds, add point
+            if (T1 == 0)
+            {
+                ClipPoints1.Emplace(P1);
+            }
+        }
     }
 
-    PolyGrid = NewObject<UGULPolyGridObject>(Outer);
-
-    if (IsValid(PolyGrid))
+    // Filter duplicate points
     {
-        PolyGrid->GenerateFromPolyPointIndices(PolyPoints, Indices, DimensionX, DimensionY);
+        ClipPoints0 = MoveTemp(ClipPoints1);
+        ClipPoints1 = TArray<FVector2D>();
+
+        for (int32 i=0; i<ClipPoints0.Num(); ++i)
+        {
+            UE_LOG(LogTemp,Warning, TEXT("P[%d]: %s"),
+                i,
+                *ClipPoints0[i].ToString()
+                );
+        }
+
+        const int32 PointCount = ClipPoints0.Num();
+
+        if (PointCount < 3)
+        {
+            return;
+        }
+
+        ClipPoints1.Reserve(PointCount);
+
+        FVector2D P0;
+        FVector2D P1(ClipPoints0[PointCount-1]);
+
+        for (int32 i=0; i<PointCount; ++i)
+        {
+            P0 = P1;
+            P1 = ClipPoints0[i];
+
+            // Skip coincident edge
+            if ((P1-P0).SizeSquared() < KINDA_SMALL_NUMBER)
+            {
+                continue;
+            }
+
+            ClipPoints1.Emplace(P1);
+        }
     }
 
-    return PolyGrid;
+    OutPoints = MoveTemp(ClipPoints1);
 }
