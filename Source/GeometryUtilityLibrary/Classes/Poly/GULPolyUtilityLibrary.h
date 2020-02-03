@@ -97,6 +97,9 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Is Point On Poly"))
     static bool K2_IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Points Bounds"))
+    static FBox2D K2_GetPointsBounds(const TArray<FVector2D>& Points);
+
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Fit Points"))
     static TArray<FVector2D> K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale = 1.f);
 
@@ -134,6 +137,8 @@ public:
     static UGULPolyGridObject* K2_GenerateGridObjectFromPointIndices(UObject* Outer, const TArray<FVector2D>& PolyPoints, const TArray<int32>& Indices, int32 DimensionX, int32 DimensionY);
 
     // Points Utility
+
+    inline static FBox2D GetPointsBounds(const TArray<FVector2D>& Points);
 
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
@@ -273,6 +278,11 @@ FORCEINLINE_DEBUGGABLE bool UGULPolyUtilityLibrary::K2_IsPointOnPoly(const FVect
     return IsPointOnPoly(Point, Poly);
 }
 
+FORCEINLINE_DEBUGGABLE FBox2D UGULPolyUtilityLibrary::K2_GetPointsBounds(const TArray<FVector2D>& Points)
+{
+    return GetPointsBounds(Points);
+}
+
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)
 {
     FindPointsByAngle(OutPoints, Points, AngleThreshold);
@@ -314,6 +324,18 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ConvertIndexedPolyGroupTo
         InPolyGroups,
         ZPosition
         );
+}
+
+inline FBox2D UGULPolyUtilityLibrary::GetPointsBounds(const TArray<FVector2D>& Points)
+{
+    FBox2D Bounds(ForceInitToZero);
+
+    for (const FVector2D& Point : Points)
+    {
+        Bounds += Point;
+    }
+
+    return Bounds;
 }
 
 inline bool UGULPolyUtilityLibrary::IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative)

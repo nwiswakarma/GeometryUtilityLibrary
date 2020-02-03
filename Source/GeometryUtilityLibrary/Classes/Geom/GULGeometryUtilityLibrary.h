@@ -53,11 +53,29 @@ public:
     UFUNCTION(BlueprintCallable)
     static void AlignBox(TArray<FGULOrientedBox>& OutBoxes, TArray<FVector>& OutDeltas, const TArray<FGULOrientedBox>& InBoxes);
 
-    UFUNCTION(BlueprintCallable)
-    static void ConvertVector2DGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULVector2DGroup& InVector2DGroup, float ZPosition = 0.f);
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Vector2D Array To Vector Array"))
+    static void K2_ConvertVector2DArrayToVectorArray(TArray<FVector>& OutVectors, const TArray<FVector2D>& InVector2Ds, float ZPosition = 0.f);
 
-    UFUNCTION(BlueprintCallable)
-    static void ConvertVector2DGroupsToVectorGroups(TArray<FGULVectorGroup>& OutVectorGroups, const TArray<FGULVector2DGroup>& InVector2DGroups, float ZPosition = 0.f);
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Vector2D Group To Vector Group"))
+    static void K2_ConvertVector2DGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULVector2DGroup& InVector2DGroup, float ZPosition = 0.f);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Vector2D Groups To Vector Groups"))
+    static void K2_ConvertVector2DGroupsToVectorGroups(TArray<FGULVectorGroup>& OutVectorGroups, const TArray<FGULVector2DGroup>& InVector2DGroups, float ZPosition = 0.f);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Points By Indices"))
+    static void K2_GetPointsByIndices(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices);
+
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Index Range"))
+    static void K2_GenerateIndexRange(TArray<int32>& OutIndices, int32 IndexStart = 0, int32 IndexCount = 1);
+
+    inline static void ConvertVector2DArrayToVectorArray(TArray<FVector>& OutVectors, const TArray<FVector2D>& InVector2Ds, float ZPosition = 0.f);
+    inline static void ConvertVector2DGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULVector2DGroup& InVector2DGroup, float ZPosition = 0.f);
+    inline static void ConvertVector2DGroupsToVectorGroups(TArray<FGULVectorGroup>& OutVectorGroups, const TArray<FGULVector2DGroup>& InVector2DGroups, float ZPosition = 0.f);
+
+    inline static void GetPointsByIndices(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices);
+    inline static void GetPointsByIndicesUnsafe(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices);
+
+    inline static void GenerateIndexRange(TArray<int32>& OutIndices, int32 IndexStart = 0, int32 IndexCount = 1);
 
     inline static bool SegmentIntersection2D(
         const FVector2D& SegmentA0,
@@ -222,6 +240,53 @@ FORCEINLINE_DEBUGGABLE bool UGULGeometryUtility::IsPointOnBounds(const FBox2D& B
     return IsPointOnBounds(Bounds.Min, Bounds.Max, Point);
 }
 
+FORCEINLINE_DEBUGGABLE void UGULGeometryUtility::K2_ConvertVector2DArrayToVectorArray(TArray<FVector>& OutVectors, const TArray<FVector2D>& InVector2Ds, float ZPosition)
+{
+    OutVectors.Reset();
+    ConvertVector2DArrayToVectorArray(OutVectors, InVector2Ds, ZPosition);
+    OutVectors.Shrink();
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGeometryUtility::K2_ConvertVector2DGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULVector2DGroup& InVector2DGroup, float ZPosition)
+{
+    OutVectorGroup.Vectors.Reset();
+    ConvertVector2DGroupToVectorGroup(OutVectorGroup, InVector2DGroup, ZPosition);
+    OutVectorGroup.Vectors.Shrink();
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGeometryUtility::K2_ConvertVector2DGroupsToVectorGroups(TArray<FGULVectorGroup>& OutVectorGroups, const TArray<FGULVector2DGroup>& InVector2DGroups, float ZPosition)
+{
+    OutVectorGroups.Reset();
+    ConvertVector2DGroupsToVectorGroups(OutVectorGroups, InVector2DGroups, ZPosition);
+    OutVectorGroups.Shrink();
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGeometryUtility::K2_GetPointsByIndices(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices)
+{
+    OutPoints.Reset();
+    GetPointsByIndices(OutPoints, InPoints, InIndices);
+    OutPoints.Shrink();
+}
+
+FORCEINLINE_DEBUGGABLE void UGULGeometryUtility::K2_GenerateIndexRange(TArray<int32>& OutIndices, int32 IndexStart, int32 IndexCount)
+{
+    OutIndices.Reset();
+    GenerateIndexRange(OutIndices, IndexStart, IndexCount);
+    OutIndices.Shrink();
+}
+
+inline void UGULGeometryUtility::ConvertVector2DArrayToVectorArray(TArray<FVector>& OutVectors, const TArray<FVector2D>& InVector2Ds, float ZPosition)
+{
+    const int32 VectorOffset = OutVectors.Num();
+
+    OutVectors.AddUninitialized(InVector2Ds.Num());
+
+    for (int32 pi=0; pi<InVector2Ds.Num(); ++pi)
+    {
+        OutVectors[VectorOffset+pi] = FVector(InVector2Ds[pi], ZPosition);
+    }
+}
+
 inline void UGULGeometryUtility::ConvertVector2DGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULVector2DGroup& InVector2DGroup, float ZPosition)
 {
     const TArray<FVector2D>& Points(InVector2DGroup.Points);
@@ -250,5 +315,43 @@ inline void UGULGeometryUtility::ConvertVector2DGroupsToVectorGroups(TArray<FGUL
             InVector2DGroups[i],
             ZPosition
             );
+    }
+}
+
+inline void UGULGeometryUtility::GetPointsByIndices(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices)
+{
+    OutPoints.Reserve(OutPoints.Num()+InIndices.Num());
+
+    for (int32 i : InIndices)
+    {
+        if (InPoints.IsValidIndex(i))
+        {
+            OutPoints.Emplace(InPoints[i]);
+        }
+    }
+}
+
+inline void UGULGeometryUtility::GetPointsByIndicesUnsafe(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const TArray<int32>& InIndices)
+{
+    OutPoints.Reserve(OutPoints.Num()+InIndices.Num());
+
+    for (int32 i : InIndices)
+    {
+        OutPoints.Emplace(InPoints[i]);
+    }
+}
+
+inline void UGULGeometryUtility::GenerateIndexRange(TArray<int32>& OutIndices, int32 IndexStart, int32 IndexCount)
+{
+    if (IndexCount > 0)
+    {
+        const int32 OffsetIndex = OutIndices.Num();
+
+        OutIndices.AddUninitialized(IndexCount);
+
+        for (int32 i=0; i<IndexCount; ++i)
+        {
+            OutIndices[OffsetIndex+i] = IndexStart+i;
+        }
     }
 }
