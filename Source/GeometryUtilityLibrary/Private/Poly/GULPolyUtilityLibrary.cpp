@@ -726,14 +726,10 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
 
     if (InPoints.Num() < 3 ||
         InBounds.Min.X > InBounds.Max.X ||
-        InBounds.Min.Y > InBounds.Max.Y
-        )
+        InBounds.Min.Y > InBounds.Max.Y)
     {
         return;
     }
-
-#if 0
-#endif
 
     TArray<FVector2D> ClipPoints0;
     TArray<FVector2D> ClipPoints1(InPoints);
@@ -744,18 +740,14 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
         ClipPoints1.Pop();
     }
 
+    // Clip poly on each bounds side
     for (int32 s=0; s<4; ++s)
     {
+        // Swap point containers
         ClipPoints0 = MoveTemp(ClipPoints1);
         ClipPoints1 = TArray<FVector2D>();
 
-        for (int32 i=0; i<ClipPoints0.Num(); ++i)
-        {
-            UE_LOG(LogTemp,Warning, TEXT("P[%d]: %s"),
-                i,
-                *ClipPoints0[i].ToString()
-                );
-        }
+        // Abort clip if there is not sufficient points left
 
         const int32 PointCount = ClipPoints0.Num();
 
@@ -766,9 +758,9 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
 
         ClipPoints1.Reserve(PointCount);
 
-        const EGULBox2DClip ClipCode = static_cast<EGULBox2DClip>(1 << s);
+        // Clip poly on bounds side
 
-        UE_LOG(LogTemp,Warning, TEXT("ClipCode: %u"), ClipCode);
+        const EGULBox2DClip ClipCode = static_cast<EGULBox2DClip>(1 << s);
 
         FVector2D P0;
         FVector2D P1(ClipPoints0[PointCount-1]);
@@ -790,8 +782,6 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
             T0 = T1;
             T1 = UGULGeometryUtility::IsInsideBounds(P1, InBounds, ClipCode);
 
-            UE_LOG(LogTemp,Warning, TEXT("T0: %d, T1: %d"), T0, T1);
-
             // Points are on different clip side, add intersection
             if (T0 != T1)
             {
@@ -801,10 +791,6 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
                     InBounds,
                     ClipCode
                     ) );
-
-                UE_LOG(LogTemp,Warning, TEXT("INTERSECT: %s"),
-                    *ClipPoints1.Last().ToString()
-                    );
             }
 
             // Point is within clip bounds, add point
@@ -819,14 +805,6 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
     {
         ClipPoints0 = MoveTemp(ClipPoints1);
         ClipPoints1 = TArray<FVector2D>();
-
-        for (int32 i=0; i<ClipPoints0.Num(); ++i)
-        {
-            UE_LOG(LogTemp,Warning, TEXT("P[%d]: %s"),
-                i,
-                *ClipPoints0[i].ToString()
-                );
-        }
 
         const int32 PointCount = ClipPoints0.Num();
 
