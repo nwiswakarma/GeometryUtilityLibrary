@@ -785,13 +785,6 @@ bool UGULGridUtility::GenerateGridAndEdgeGroupsIntersections(
     Bounds += FVector2D(GridBoundsMax);
     Bounds = Bounds.ExpandBy(Radius);
 
-    //FVector2D SegA[4] = {
-    //    FVector2D(GridBoundsMin.X-Radius, GridBoundsMin.Y-Radius),
-    //    FVector2D(GridBoundsMax.X+Radius, GridBoundsMin.Y-Radius),
-    //    FVector2D(GridBoundsMax.X+Radius, GridBoundsMax.Y+Radius),
-    //    FVector2D(GridBoundsMin.X-Radius, GridBoundsMax.Y+Radius)
-    //    };
-
     FVector2D SegA[4] = {
         FVector2D(Bounds.Min.X, Bounds.Min.Y),
         FVector2D(Bounds.Max.X, Bounds.Min.Y),
