@@ -62,4 +62,29 @@ struct GEOMETRYUTILITYLIBRARY_API FGULIndexedPolyGroup
 
         return false;
     }
+
+    FORCEINLINE const FGULVector2DGroup& GetOuter(const TArray<FGULVector2DGroup>& PolyGroups) const
+    {
+        return PolyGroups[OuterPolyIndex];
+    }
+
+    FORCEINLINE FGULVector2DGroup& GetOuter(TArray<FGULVector2DGroup>& PolyGroups) const
+    {
+        return PolyGroups[OuterPolyIndex];
+    }
+
+    FORCEINLINE const FGULVector2DGroup& GetInner(const TArray<FGULVector2DGroup>& PolyGroups, int32 Index) const
+    {
+        return PolyGroups[InnerPolyIndices[Index]];
+    }
+
+    FORCEINLINE FGULVector2DGroup& GetInner(TArray<FGULVector2DGroup>& PolyGroups, int32 Index) const
+    {
+        return PolyGroups[InnerPolyIndices[Index]];
+    }
+
+    FORCEINLINE int32 GetInnerNum() const
+    {
+        return InnerPolyIndices.Num();
+    }
 };

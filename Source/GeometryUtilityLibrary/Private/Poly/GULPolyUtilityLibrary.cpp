@@ -175,39 +175,49 @@ bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<
     return (result != 0);
 }
 
+bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const FGULIndexedPolyGroup& IndexGroup, const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    if (! IndexGroup.IsValidIndexGroup(PolyGroups))
+    {
+        return false;
+    }
+
+    if (IsPointOnPoly(Point, PolyGroups[IndexGroup.OuterPolyIndex].Points))
+    {
+        if (IndexGroup.InnerPolyIndices.Num() > 0)
+        {
+            bool bIsWithinInnerPoly = false;
+
+            for (int32 InnerPolyIndex : IndexGroup.InnerPolyIndices)
+            {
+                if (IsPointOnPoly(Point, PolyGroups[InnerPolyIndex].Points))
+                {
+                    bIsWithinInnerPoly = true;
+                    break;
+                }
+            }
+
+            if (! bIsWithinInnerPoly)
+            {
+                return true;
+            }
+        }
+        else
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const TArray<FGULIndexedPolyGroup>& IndexGroups, const TArray<FGULVector2DGroup>& PolyGroups)
 {
     for (const FGULIndexedPolyGroup& IndexGroup : IndexGroups)
     {
-        if (! IndexGroup.IsValidIndexGroup(PolyGroups))
+        if (IsPointOnPoly(Point, IndexGroup, PolyGroups))
         {
-            continue;
-        }
-
-        if (IsPointOnPoly(Point, PolyGroups[IndexGroup.OuterPolyIndex].Points))
-        {
-            if (IndexGroup.InnerPolyIndices.Num() > 0)
-            {
-                bool bIsWithinInnerPoly = false;
-
-                for (int32 InnerPolyIndex : IndexGroup.InnerPolyIndices)
-                {
-                    if (IsPointOnPoly(Point, PolyGroups[InnerPolyIndex].Points))
-                    {
-                        bIsWithinInnerPoly = true;
-                        break;
-                    }
-                }
-
-                if (! bIsWithinInnerPoly)
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                return true;
-            }
+            return true;
         }
     }
 
@@ -834,4 +844,15 @@ void UGULPolyUtilityLibrary::ClipBounds(TArray<FVector2D>& OutPoints, const TArr
     }
 
     OutPoints = MoveTemp(ClipPoints1);
+}
+
+void UGULPolyUtilityLibrary::ClipBounds(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups, const FBox2D& InBounds)
+{
+    OutPolyGroups.Reset();
+    OutPolyGroups.SetNum(InPolyGroups.Num());
+
+    for (int32 i=0; i<InPolyGroups.Num(); ++i)
+    {
+        ClipBounds(OutPolyGroups[i].Points, InPolyGroups[i].Points, InBounds);
+    }
 }

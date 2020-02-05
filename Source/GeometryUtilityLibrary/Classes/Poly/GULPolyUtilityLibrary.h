@@ -146,6 +146,7 @@ public:
     // Find Point On Poly
 
     static bool IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
+    static bool IsPointOnPoly(const FVector2D& Point, const FGULIndexedPolyGroup& IndexGroup, const TArray<FGULVector2DGroup>& PolyGroups);
     static bool IsPointOnPoly(const FVector2D& Point, const TArray<FGULIndexedPolyGroup>& IndexGroups, const TArray<FGULVector2DGroup>& PolyGroups);
 
     inline static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
@@ -262,6 +263,7 @@ public:
     // Poly Clip
 
     static void ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds);
+    static void ClipBounds(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups, const FBox2D& InBounds);
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
