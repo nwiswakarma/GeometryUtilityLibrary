@@ -30,6 +30,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GULTypes.h"
+#include "Geom/GULGeometryUtilityLibrary.h"
 #include "Poly/GULPolyTypes.h"
 #include "GULGridUtility.generated.h"
 
@@ -80,26 +81,109 @@ class GEOMETRYUTILITYLIBRARY_API UGULGridUtility : public UBlueprintFunctionLibr
 
 public:
 
-    typedef TFunction<void(FIntPoint,FVector2D,FVector2D)> FGridWalkVisitCallback;
-
+    template<typename FGridContainer>
     static void GridWalk(
-        TArray<FIntPoint>& OutGridIds,
+        FGridContainer& OutGridIds,
         const FVector2D& P0,
         const FVector2D& P1,
         int32 DimensionX,
-        int32 DimensionY,
-        bool bUniqueOutput = false,
-        FGridWalkVisitCallback VisitCallback = nullptr
-        );
+        int32 DimensionY
+        )
+    {
+        if (DimensionX < 1 || DimensionY < 1)
+        {
+            return;
+        }
 
-    static void GenerateGridsFromPolyGroups(
-        TArray<FIntPoint>& OutGridIds,
-        const TArray<FGULVector2DGroup>& InPolys,
-        int32 InDimensionX,
-        int32 InDimensionY,
-        bool bClosedPolygons = true,
-        FGridWalkVisitCallback VisitCallback = nullptr
-        );
+        const float DX = P1.X-P0.X;
+        const float DY = P1.Y-P0.Y;
+        const int32 SgnX = (DX>0.f) ? 1 : -1;
+        const int32 SgnY = (DY>0.f) ? 1 : -1;
+
+        FIntPoint ID0(GetGridId(P0, DimensionX, DimensionY));
+        FIntPoint ID1(GetGridId(P1, DimensionX, DimensionY));
+        FVector2D DimF(DimensionX, DimensionY);
+
+        while (ID0 != ID1)
+        {
+            FBox2D Bounds(ForceInitToZero);
+            Bounds += FVector2D(ID0.X, ID0.Y) * DimF;
+            Bounds += Bounds.Min + DimF;
+
+            // Find X-Axis intersection
+
+            FVector2D SegX0;
+            FVector2D SegX1;
+
+            if (SgnX > 0)
+            {
+                SegX0 = FVector2D(Bounds.Max.X, Bounds.Min.Y);
+                SegX1 = FVector2D(Bounds.Max.X, Bounds.Max.Y);
+            }
+            else
+            {
+                SegX0 = FVector2D(Bounds.Min.X, Bounds.Min.Y);
+                SegX1 = FVector2D(Bounds.Min.X, Bounds.Max.Y);
+            }
+
+            bool bIntersectX = UGULGeometryUtility::SegmentIntersection2D(
+                P0,
+                P1,
+                SegX0,
+                SegX1
+                );
+
+            if (bIntersectX)
+            {
+                ID0.X += SgnX;
+                OutGridIds.Emplace(ID0);
+                continue;
+            }
+
+            // Find Y-Axis intersection
+
+            FVector2D SegY0;
+            FVector2D SegY1;
+
+            if (SgnY > 0)
+            {
+                SegY0 = FVector2D(Bounds.Min.X, Bounds.Max.Y);
+                SegY1 = FVector2D(Bounds.Max.X, Bounds.Max.Y);
+            }
+            else
+            {
+                SegY0 = FVector2D(Bounds.Min.X, Bounds.Min.Y);
+                SegY1 = FVector2D(Bounds.Max.X, Bounds.Min.Y);
+            }
+
+            bool bIntersectY = UGULGeometryUtility::SegmentIntersection2D(
+                P0,
+                P1,
+                SegY0,
+                SegY1
+                );
+
+            if (bIntersectY)
+            {
+                ID0.Y += SgnY;
+                OutGridIds.Emplace(ID0);
+                continue;
+            }
+
+            // Fallback check if segment intersection checks
+            // missed the correct final voxel
+            if ((ID0+FIntPoint(-SgnX, 0    )) == ID1 ||
+                (ID0+FIntPoint(    0, -SgnY)) == ID1)
+            {
+                ID0 = ID1;
+                OutGridIds.Emplace(ID0);
+                continue;
+            }
+
+            // Check no entry
+            check(false);
+        }
+    }
 
     static bool GridFillBoundsByPoints(
         TArray<FIntPoint>& OutPoints,
@@ -125,6 +209,14 @@ public:
         const FIntPoint& GridId,
         int32 GridIndex,
         float IntersectRadius = KINDA_SMALL_NUMBER
+        );
+
+    static void GenerateGridsFromPolyGroups(
+        TArray<FIntPoint>& OutGridIds,
+        const TArray<FGULVector2DGroup>& InPolys,
+        int32 InDimensionX,
+        int32 InDimensionY,
+        bool bClosedPolygons = true
         );
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Grid Walk"))
@@ -167,10 +259,17 @@ public:
         );
 
     UFUNCTION(BlueprintCallable)
-    static bool GridFillByPoint(TArray<FIntPoint>& OutPoints, const TArray<FIntPoint>& BoundaryPoints, const FIntPoint& FillTargetPoint);
+    static bool GridFillByPoint(
+        TArray<FIntPoint>& OutPoints,
+        const TArray<FIntPoint>& BoundaryPoints,
+        const FIntPoint& FillTargetPoint
+        );
 
     UFUNCTION(BlueprintCallable)
-    static bool GenerateIsolatedPointGroups(TArray<FGULIntPointGroup>& OutPointGroups, const TArray<FIntPoint>& BoundaryPoints);
+    static bool GenerateIsolatedPointGroups(
+        TArray<FGULIntPointGroup>& OutPointGroups,
+        const TArray<FIntPoint>& BoundaryPoints
+        );
 
     UFUNCTION(BlueprintCallable)
     static bool GenerateIsolatedPointGroupsWithinBounds(
@@ -271,15 +370,30 @@ FORCEINLINE_DEBUGGABLE void UGULGridUtility::K2_GridWalk(
     bool bUniqueOutput
     )
 {
-    GridWalk(
-        OutGridIds,
-        P0,
-        P1,
-        DimensionX,
-        DimensionY,
-        bUniqueOutput,
-        nullptr
-        );
+    if (bUniqueOutput)
+    {
+        TArray<FIntPoint> GridIds;
+        GridWalk(
+            GridIds,
+            P0,
+            P1,
+            DimensionX,
+            DimensionY
+            );
+        OutGridIds = TSet<FIntPoint>(GridIds).Array();
+    }
+    else
+    {
+        OutGridIds.Reset();
+        GridWalk(
+            OutGridIds,
+            P0,
+            P1,
+            DimensionX,
+            DimensionY
+            );
+        OutGridIds.Shrink();
+    }
 }
 
 FORCEINLINE_DEBUGGABLE void UGULGridUtility::K2_GenerateGridsFromPolyGroups(
@@ -295,7 +409,6 @@ FORCEINLINE_DEBUGGABLE void UGULGridUtility::K2_GenerateGridsFromPolyGroups(
         InPolys,
         InDimensionX,
         InDimensionY,
-        bClosedPolygons,
-        nullptr
+        bClosedPolygons
         );
 }

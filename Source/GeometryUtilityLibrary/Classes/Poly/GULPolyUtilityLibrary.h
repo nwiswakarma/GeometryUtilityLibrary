@@ -254,6 +254,14 @@ public:
     static void SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
     FORCEINLINE static void SubdividePolylines(TArray<FVector2D>& Points);
 
+    static void SubdividePolylinesWithinLength(
+        TArray<FVector2D>& OutPoints,
+        const TArray<FVector2D>& InPoints,
+        float SubdivisionLength = 10.f,
+        bool bClosePolygon = false,
+        bool bClosePolygonOutput = false
+        );
+
     // Poly Grouping
 
     static void FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups);

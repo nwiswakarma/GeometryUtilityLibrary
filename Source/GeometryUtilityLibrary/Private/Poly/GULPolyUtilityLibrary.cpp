@@ -290,7 +290,6 @@ bool UGULPolyUtilityLibrary::GetPointAngleVectors(FVector2D& Point0, FVector2D& 
     return false;
 }
 
-
 void UGULPolyUtilityLibrary::CollapsePointAngles(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& Points, bool bCircular, int32 MaxIteration, float AngleThreshold, float SignFilter)
 {
     const int32 PointCount = Points.Num();
@@ -542,6 +541,103 @@ void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& OutPoints, co
     }
 
     OutPoints.Emplace(InPoints.Last());
+}
+
+void UGULPolyUtilityLibrary::SubdividePolylinesWithinLength(
+    TArray<FVector2D>& OutPoints,
+    const TArray<FVector2D>& InPoints,
+    float SubdivisionLength,
+    bool bClosePolygon,
+    bool bClosePolygonOutput
+    )
+{
+    if (InPoints.Num() < 2 || SubdivisionLength < KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    OutPoints.Reset(InPoints.Num() * 2);
+
+    // Add starting point
+    OutPoints.Emplace(InPoints[0]);
+
+    const float SubdivLengthSq = SubdivisionLength*SubdivisionLength;
+
+    for (int32 i=1; i<InPoints.Num(); ++i)
+    {
+        const FVector2D& P0(InPoints[i-1]);
+        const FVector2D& P1(InPoints[i]);
+        const FVector2D P01 = (P1-P0);
+
+        const float SizeSq = P01.SizeSquared();
+
+        float NewSizeSq = P01.SizeSquared();
+        int32 SubdivDepth = 0;
+
+        // Calculate subidivision depth
+        while (NewSizeSq > SubdivLengthSq)
+        {
+            SubdivDepth++;
+            NewSizeSq = FMath::Sqrt(NewSizeSq) / 2.f;
+            NewSizeSq *= NewSizeSq;
+        }
+
+        if (SubdivDepth > 0)
+        {
+            // Calculate subdivision ratio and number of new points
+            int32 NewPointCount = 1<<SubdivDepth;
+            float SubdivRatio = FMath::Sqrt(NewSizeSq) / FMath::Sqrt(SizeSq);
+
+            // Add subdivision points
+            for (int32 si=1; si<NewPointCount; ++si)
+            {
+                OutPoints.Emplace(P0 + P01*si*SubdivRatio);
+            }
+        }
+
+        // Add next point
+        OutPoints.Emplace(P1);
+    }
+
+    // Close poly if required
+    if (bClosePolygon && ! InPoints[0].Equals(InPoints.Last()))
+    {
+        const FVector2D& P0(InPoints.Last());
+        const FVector2D& P1(InPoints[0]);
+        const FVector2D P01 = (P1-P0);
+
+        float SizeSq = P01.SizeSquared();
+        int32 SubdivDepth = 0;
+
+        // Calculate subidivision depth
+        while (SizeSq > SubdivLengthSq)
+        {
+            SubdivDepth++;
+            SizeSq = FMath::Sqrt(SizeSq) / 2.f;
+            SizeSq *= SizeSq;
+        }
+
+        if (SubdivDepth > 0)
+        {
+            // Calculate distance and number of new points
+            int32 NewPointCount = 1<<SubdivDepth;
+            float SubdivDist = FMath::Sqrt(SizeSq) / NewPointCount;
+
+            // Add subdivision points
+            for (int32 i=1; i<NewPointCount; ++i)
+            {
+                OutPoints.Emplace(P0 + P01*i*SubdivDist);
+            }
+        }
+
+        // Add last point if required
+        if (bClosePolygonOutput)
+        {
+            OutPoints.Emplace(P1);
+        }
+    }
+
+    OutPoints.Shrink();
 }
 
 void UGULPolyUtilityLibrary::FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups)
