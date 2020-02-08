@@ -98,6 +98,9 @@ public:
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Points Bounds"))
     static FBox2D K2_GetPointsBounds(const TArray<FVector2D>& Points);
 
+    UFUNCTION(BlueprintCallable, meta=(DisplayName="Get Points Bounds"))
+    static FBox2D K2_GetPolyGroupsBounds(const TArray<FGULVector2DGroup>& PolyGroups);
+
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Fit Points"))
     static TArray<FVector2D> K2_FitPoints(const TArray<FVector2D>& Points, FVector2D Dimension, float FitScale = 1.f);
 
@@ -139,6 +142,7 @@ public:
     // Points Utility
 
     inline static FBox2D GetPointsBounds(const TArray<FVector2D>& Points);
+    inline static FBox2D GetPolyGroupsBounds(const TArray<FGULVector2DGroup>& PolyGroups);
 
     static void FitPoints(TArray<FVector2D>& Points, const FVector2D& Dimension, float FitScale = 1.f);
 
@@ -279,6 +283,11 @@ FORCEINLINE_DEBUGGABLE FBox2D UGULPolyUtilityLibrary::K2_GetPointsBounds(const T
     return GetPointsBounds(Points);
 }
 
+FORCEINLINE_DEBUGGABLE FBox2D UGULPolyUtilityLibrary::K2_GetPolyGroupsBounds(const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    return GetPolyGroupsBounds(PolyGroups);
+}
+
 FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_FindPointsByAngle(TArray<FGULPointAngleOutput>& OutPoints, const TArray<FVector2D>& Points, float AngleThreshold)
 {
     FindPointsByAngle(OutPoints, Points, AngleThreshold);
@@ -341,6 +350,18 @@ inline FBox2D UGULPolyUtilityLibrary::GetPointsBounds(const TArray<FVector2D>& P
     for (const FVector2D& Point : Points)
     {
         Bounds += Point;
+    }
+
+    return Bounds;
+}
+
+inline FBox2D UGULPolyUtilityLibrary::GetPolyGroupsBounds(const TArray<FGULVector2DGroup>& PolyGroups)
+{
+    FBox2D Bounds(ForceInitToZero);
+
+    for (const FGULVector2DGroup& PolyGroup : PolyGroups)
+    {
+        Bounds += GetPointsBounds(PolyGroup.Points);
     }
 
     return Bounds;
