@@ -26,7 +26,6 @@
 // 
 
 #include "Poly/GULPolyUtilityLibrary.h"
-#include "Poly/GULPolyGridObject.h"
 #include "Geom/GULGeometryUtilityLibrary.h"
 #include "GULMathLibrary.h"
 

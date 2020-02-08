@@ -143,7 +143,7 @@ public:
 
     FORCEINLINE static uint32 GetHash(int32 X, int32 Y)
     {
-        return static_cast<int32>((0x65d200ce55b19ad8L * X + 0x4f2162926e40c299L * Y + 0x162dd799029970f8L) >> 32);
+        return static_cast<uint32>((0x65d200ce55b19ad8L * X + 0x4f2162926e40c299L * Y + 0x162dd799029970f8L) >> 32);
     }
 
     FORCEINLINE static uint32 GetHash(const FIntPoint& Point)

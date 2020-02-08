@@ -33,8 +33,6 @@
 #include "Poly/GULPolyTypes.h"
 #include "GULPolyUtilityLibrary.generated.h"
 
-class UGULPolyGridObject;
-
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULPointAngleOutput
 {
@@ -131,7 +129,12 @@ public:
     static void K2_GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Convert Indexed Poly Groups To Vector Groups"))
-    static void K2_ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition = 0.f);
+    static void K2_ConvertIndexedPolyGroupToVectorGroup(
+        FGULVectorGroup& OutVectorGroup,
+        const FGULIndexedPolyGroup& InIndexedPolyGroup,
+        const TArray<FGULVector2DGroup>& InPolyGroups,
+        float ZPosition = 0.f
+        );
 
     // Points Utility
 
@@ -145,102 +148,65 @@ public:
 
     // Find Point On Poly
 
-    static bool IsPointOnPoly(const FVector2D& Point, const TArray<FVector2D>& Poly);
-    static bool IsPointOnPoly(const FVector2D& Point, const FGULIndexedPolyGroup& IndexGroup, const TArray<FGULVector2DGroup>& PolyGroups);
-    static bool IsPointOnPoly(const FVector2D& Point, const TArray<FGULIndexedPolyGroup>& IndexGroups, const TArray<FGULVector2DGroup>& PolyGroups);
+    static bool IsPointOnPoly(
+        const FVector2D& Point,
+        const TArray<FVector2D>& Poly
+        );
 
-    inline static bool IsPointOnTri(float px, float py, float tpx0, float tpy0, float tpx1, float tpy1, float tpx2, float tpy2)
-    {
-        float dX = px-tpx2;
-        float dY = py-tpy2;
-        float dX21 = tpx2-tpx1;
-        float dY12 = tpy1-tpy2;
-        float D = dY12*(tpx0-tpx2) + dX21*(tpy0-tpy2);
-        float s = dY12*dX + dX21*dY;
-        float t = (tpy2-tpy0)*dX + (tpx0-tpx2)*dY;
-        return (D<0.f)
-            ? (s<=0.f && t<=0.f && s+t>=D)
-            : (s>=0.f && t>=0.f && s+t<=D);
-    }
+    static bool IsPointOnPoly(
+        const FVector2D& Point,
+        const FGULIndexedPolyGroup& IndexGroup,
+        const TArray<FGULVector2DGroup>& PolyGroups
+        );
+
+    static bool IsPointOnPoly(
+        const FVector2D& Point,
+        const TArray<FGULIndexedPolyGroup>& IndexGroups,
+        const TArray<FGULVector2DGroup>& PolyGroups
+        );
+
+    inline static bool IsPointOnTri(
+        float px,
+        float py,
+        float tpx0,
+        float tpy0,
+        float tpx1,
+        float tpy1,
+        float tpx2,
+        float tpy2
+        );
 
     FORCEINLINE static bool IsPointOnTri(
         const FVector2D& Point,
         const FVector2D& TriPoint0,
         const FVector2D& TriPoint1,
         const FVector2D& TriPoint2
-        )
-    {
-        return IsPointOnTri(
-            Point.X,
-            Point.Y,
-            TriPoint0.X,
-            TriPoint0.Y,
-            TriPoint1.X,
-            TriPoint1.Y,
-            TriPoint2.X,
-            TriPoint2.Y
-            );
-    }
+        );
 
     FORCEINLINE static bool IsPointOnTri(
         const FVector& Point,
         const FVector& TriPoint0,
         const FVector& TriPoint1,
         const FVector& TriPoint2
-        )
-    {
-        return IsPointOnTri(
-            Point.X,
-            Point.Y,
-            TriPoint0.X,
-            TriPoint0.Y,
-            TriPoint1.X,
-            TriPoint1.Y,
-            TriPoint2.X,
-            TriPoint2.Y
-            );
-    }
+        );
 
     // Find Area and Orientation
 
-    inline static float GetArea(const TArray<FVector2D>& Points)
-    {
-        int32 PointCount = Points.Num();
-        
-        if (PointCount < 3)
-        {
-            return 0.f;
-        }
-        
-        float a = 0.f;
-        
-        for (int32 i=0, j=PointCount-1; i<PointCount; ++i)
-        {
-            a += (Points[i].X + Points[j].X) * (Points[i].Y - Points[j].Y);
-            j = i;
-        }
-        
-        return a * 0.5f;
-    }
+    inline static float GetArea(const TArray<FVector2D>& Points);
 
-    FORCEINLINE static float GetArea(const FVector2D& Point0, const FVector2D& Point1, const FVector2D& Point2)
-    {
-        float a = 0.f;
-        a += (Point0.X + Point2.X) * (Point0.Y - Point2.Y);
-        a += (Point1.X + Point0.X) * (Point1.Y - Point0.Y);
-        a += (Point2.X + Point1.X) * (Point2.Y - Point1.Y);
-        return a * 0.5;
-    }
+    FORCEINLINE static float GetArea(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FVector2D& Point2
+        );
 
-    FORCEINLINE static bool GetOrientation(const TArray<FVector2D>& Points)
-    {
-        return GetArea(Points) >= 0.f;
-    }
+    FORCEINLINE static bool GetOrientation(const TArray<FVector2D>& Points);
 
-    FORCEINLINE static bool GetOrientation(const FVector2D& Point0, const FVector2D& Point1, const FVector2D& Point2)
-    {
-        return GetArea(Point0, Point1, Point2) >= 0.f;
-    }
+    FORCEINLINE static bool GetOrientation(
+        const FVector2D& Point0,
+        const FVector2D& Point1,
+        const FVector2D& Point2
+        );
 
     // Find Points
 
@@ -265,13 +231,32 @@ public:
     // Poly Grouping
 
     static void FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups);
-    static void GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups, const TArray<FGULVector2DGroup>& PolyGroups);
-    static void ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition);
+
+    static void GroupPolyHierarchyEvenOdd(
+        TArray<FGULIndexedPolyGroup>& OutIndexedPolyGroups,
+        const TArray<FGULVector2DGroup>& PolyGroups
+        );
+
+    static void ConvertIndexedPolyGroupToVectorGroup(
+        FGULVectorGroup& OutVectorGroup,
+        const FGULIndexedPolyGroup& InIndexedPolyGroup,
+        const TArray<FGULVector2DGroup>& InPolyGroups,
+        float ZPosition
+        );
 
     // Poly Clip
 
-    static void ClipBounds(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints, const FBox2D& InBounds);
-    static void ClipBounds(TArray<FGULVector2DGroup>& OutPolyGroups, const TArray<FGULVector2DGroup>& InPolyGroups, const FBox2D& InBounds);
+    static void ClipBounds(
+        TArray<FVector2D>& OutPoints,
+        const TArray<FVector2D>& InPoints,
+        const FBox2D& InBounds
+        );
+
+    static void ClipBounds(
+        TArray<FGULVector2DGroup>& OutPolyGroups,
+        const TArray<FGULVector2DGroup>& InPolyGroups,
+        const FBox2D& InBounds
+        );
 };
 
 FORCEINLINE_DEBUGGABLE float UGULPolyUtilityLibrary::K2_GetArea(const TArray<FVector2D>& Points)
@@ -330,7 +315,12 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_GroupPolyHierarchyEvenOdd
     GroupPolyHierarchyEvenOdd(OutIndexedPolyGroups, PolyGroups);
 }
 
-FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ConvertIndexedPolyGroupToVectorGroup(FGULVectorGroup& OutVectorGroup, const FGULIndexedPolyGroup& InIndexedPolyGroup, const TArray<FGULVector2DGroup>& InPolyGroups, float ZPosition)
+FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ConvertIndexedPolyGroupToVectorGroup(
+    FGULVectorGroup& OutVectorGroup,
+    const FGULIndexedPolyGroup& InIndexedPolyGroup,
+    const TArray<FGULVector2DGroup>& InPolyGroups,
+    float ZPosition
+    )
 {
     OutVectorGroup.Vectors.Reset();
 
@@ -342,6 +332,8 @@ FORCEINLINE_DEBUGGABLE void UGULPolyUtilityLibrary::K2_ConvertIndexedPolyGroupTo
         );
 }
 
+// Points Utility
+
 inline FBox2D UGULPolyUtilityLibrary::GetPointsBounds(const TArray<FVector2D>& Points)
 {
     FBox2D Bounds(ForceInitToZero);
@@ -352,6 +344,118 @@ inline FBox2D UGULPolyUtilityLibrary::GetPointsBounds(const TArray<FVector2D>& P
     }
 
     return Bounds;
+}
+
+// Find Point On Poly
+
+inline bool UGULPolyUtilityLibrary::IsPointOnTri(
+    float px,
+    float py,
+    float tpx0,
+    float tpy0,
+    float tpx1,
+    float tpy1,
+    float tpx2,
+    float tpy2
+    )
+{
+    float dX = px-tpx2;
+    float dY = py-tpy2;
+    float dX21 = tpx2-tpx1;
+    float dY12 = tpy1-tpy2;
+    float D = dY12*(tpx0-tpx2) + dX21*(tpy0-tpy2);
+    float s = dY12*dX + dX21*dY;
+    float t = (tpy2-tpy0)*dX + (tpx0-tpx2)*dY;
+    return (D<0.f)
+        ? (s<=0.f && t<=0.f && s+t>=D)
+        : (s>=0.f && t>=0.f && s+t<=D);
+}
+
+FORCEINLINE bool UGULPolyUtilityLibrary::IsPointOnTri(
+    const FVector2D& Point,
+    const FVector2D& TriPoint0,
+    const FVector2D& TriPoint1,
+    const FVector2D& TriPoint2
+    )
+{
+    return IsPointOnTri(
+        Point.X,
+        Point.Y,
+        TriPoint0.X,
+        TriPoint0.Y,
+        TriPoint1.X,
+        TriPoint1.Y,
+        TriPoint2.X,
+        TriPoint2.Y
+        );
+}
+
+FORCEINLINE bool UGULPolyUtilityLibrary::IsPointOnTri(
+    const FVector& Point,
+    const FVector& TriPoint0,
+    const FVector& TriPoint1,
+    const FVector& TriPoint2
+    )
+{
+    return IsPointOnTri(
+        Point.X,
+        Point.Y,
+        TriPoint0.X,
+        TriPoint0.Y,
+        TriPoint1.X,
+        TriPoint1.Y,
+        TriPoint2.X,
+        TriPoint2.Y
+        );
+}
+
+// Find Area and Orientation
+
+inline float UGULPolyUtilityLibrary::GetArea(const TArray<FVector2D>& Points)
+{
+    int32 PointCount = Points.Num();
+    
+    if (PointCount < 3)
+    {
+        return 0.f;
+    }
+    
+    float a = 0.f;
+    
+    for (int32 i=0, j=PointCount-1; i<PointCount; ++i)
+    {
+        a += (Points[i].X + Points[j].X) * (Points[i].Y - Points[j].Y);
+        j = i;
+    }
+    
+    return a * 0.5f;
+}
+
+FORCEINLINE float UGULPolyUtilityLibrary::GetArea(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FVector2D& Point2
+    )
+{
+    float a = 0.f;
+    a += (Point0.X + Point2.X) * (Point0.Y - Point2.Y);
+    a += (Point1.X + Point0.X) * (Point1.Y - Point0.Y);
+    a += (Point2.X + Point1.X) * (Point2.Y - Point1.Y);
+    return a * 0.5;
+}
+
+FORCEINLINE bool UGULPolyUtilityLibrary::GetOrientation(const TArray<FVector2D>& Points)
+{
+    return GetArea(Points) >= 0.f;
+}
+
+FORCEINLINE bool UGULPolyUtilityLibrary::GetOrientation(
+    const FVector2D& Point0,
+    const FVector2D& Point1,
+    const FVector2D& Point2
+    )
+{
+    return GetArea(Point0, Point1, Point2) >= 0.f;
 }
 
 inline bool UGULPolyUtilityLibrary::IsPointAngleBelowThreshold(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, float AngleThreshold, bool bFilterBySign, bool bFilterNegative)

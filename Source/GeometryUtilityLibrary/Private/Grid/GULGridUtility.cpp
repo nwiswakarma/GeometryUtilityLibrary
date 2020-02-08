@@ -27,8 +27,9 @@
 
 #include "Grid/GULGridUtility.h"
 #include "Async/ParallelFor.h"
-#include "Poly/GULPolyUtilityLibrary.h"
 #include "GeometryUtilityLibrary.h"
+#include "GULMathLibrary.h"
+#include "Poly/GULPolyUtilityLibrary.h"
 
 int32 UGULGridUtility::GroupGridsByDimension(
     TArray<FIntPoint>& OutGroupIds,
@@ -44,16 +45,30 @@ int32 UGULGridUtility::GroupGridsByDimension(
         return 0;
     }
 
-    TMap< FIntPoint, TArray<FIntPoint> > GroupMap;
+    struct FGroupData
+    {
+        FIntPoint GroupId;
+        TArray<FIntPoint> GridIds;
+    };
+
+    TMap< uint32, FGroupData > GroupMap;
 
     for (const FIntPoint& GridId : InGridIds)
     {
         FIntPoint GroupId;
         GroupId.X = FMath::FloorToInt(static_cast<float>(GridId.X) / GroupDimensionX);
         GroupId.Y = FMath::FloorToInt(static_cast<float>(GridId.Y) / GroupDimensionY);
+        uint32 Hash = UGULMathLibrary::GetHash(GroupId);
 
-        TArray<FIntPoint>& GridIds(GroupMap.FindOrAdd(GroupId));
-        GridIds.Emplace(GridId);
+        FGroupData* GroupData(GroupMap.Find(Hash));
+
+        if (! GroupData)
+        {
+            GroupData = &GroupMap.Emplace(Hash);
+            GroupData->GroupId = GroupId;
+        }
+
+        GroupData->GridIds.Emplace(GridId);
     }
 
     const int32 GroupCount = GroupMap.Num();
@@ -63,8 +78,10 @@ int32 UGULGridUtility::GroupGridsByDimension(
 
     for (auto& DataPair : GroupMap)
     {
-        FIntPoint& GroupId(DataPair.Get<0>());
-        TArray<FIntPoint>& GridIds(DataPair.Get<1>());
+        FGroupData& GroupData(DataPair.Get<1>());
+
+        FIntPoint& GroupId(GroupData.GroupId);
+        TArray<FIntPoint>& GridIds(GroupData.GridIds);
 
         OutGroupIds.Emplace(GroupId);
 
@@ -566,19 +583,21 @@ bool UGULGridUtility::GenerateGridAndEdgeGroupsIntersections(
 void UGULGridUtility::GenerateGridsFromPolyGroups(
     TArray<FIntPoint>& OutGridIds,
     const TArray<FGULVector2DGroup>& InPolys,
-    int32 InDimensionX,
-    int32 InDimensionY,
-    bool bClosedPolygons
+    int32 InGridSizeX,
+    int32 InGridSizeY,
+    bool bClosedPolygons,
+    int32 GridSizePerSegment
     )
 {
-    if (InDimensionX < 1 || InDimensionY < 1)
+    if (InGridSizeX < 1 || InGridSizeY < 1)
     {
-        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GenerateGridsFromPolyGroups() ABORTED, INVALID DIMENSION"));
+        UE_LOG(LogGUL,Warning, TEXT("UGULGridUtility::GenerateGridsFromPolyGroups() ABORTED, INVALID GRID SIZE"));
         return;
     }
 
     const int32 PolyCount = InPolys.Num();
-    const float SparseLength = (FVector2D(InDimensionX, InDimensionY)*10).Size();
+    const FVector2D GridSize(InGridSizeX, InGridSizeY);
+    const float SparseLength = (GridSize*FMath::Max(1,GridSizePerSegment)).Size();
 
     if (PolyCount < 1)
     {
@@ -619,8 +638,8 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
             const FVector2D& P0(SparsePoints[EdgeIndex  ]);
             const FVector2D& P1(SparsePoints[EdgeIndex+1]);
 
-            FIntPoint ID0(GetGridId(P0, InDimensionX, InDimensionY));
-            FIntPoint ID1(GetGridId(P1, InDimensionX, InDimensionY));
+            FIntPoint ID0(GetGridId(P0, InGridSizeX, InGridSizeY));
+            FIntPoint ID1(GetGridId(P1, InGridSizeX, InGridSizeY));
 
             TArray<FIntPoint>& GridIdGroup(GridIdGroups[EdgeIndex]);
 
@@ -632,8 +651,8 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
                     GridIdGroup,
                     P0,
                     P1,
-                    InDimensionX,
-                    InDimensionY
+                    InGridSizeX,
+                    InGridSizeY
                     );
             }
         } );
@@ -656,8 +675,8 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
             // Close poly if not already
             if (! P0.Equals(P1))
             {
-                FIntPoint ID0(GetGridId(P0, InDimensionX, InDimensionY));
-                FIntPoint ID1(GetGridId(P1, InDimensionX, InDimensionY));
+                FIntPoint ID0(GetGridId(P0, InGridSizeX, InGridSizeY));
+                FIntPoint ID1(GetGridId(P1, InGridSizeX, InGridSizeY));
 
                 GridIds.Emplace(ID0);
 
@@ -667,8 +686,8 @@ void UGULGridUtility::GenerateGridsFromPolyGroups(
                         GridIds,
                         P0,
                         P1,
-                        InDimensionX,
-                        InDimensionY
+                        InGridSizeX,
+                        InGridSizeY
                         );
                 }
             }

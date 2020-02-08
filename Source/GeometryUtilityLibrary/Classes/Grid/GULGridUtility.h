@@ -214,9 +214,10 @@ public:
     static void GenerateGridsFromPolyGroups(
         TArray<FIntPoint>& OutGridIds,
         const TArray<FGULVector2DGroup>& InPolys,
-        int32 InDimensionX,
-        int32 InDimensionY,
-        bool bClosedPolygons = true
+        int32 InGridSizeX,
+        int32 InGridSizeY,
+        bool bClosedPolygons = true,
+        int32 GridSizePerSegment = 10
         );
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Grid Walk"))
