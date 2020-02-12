@@ -42,6 +42,9 @@ class GEOMETRYUTILITYLIBRARY_API UGULGeometryUtility : public UBlueprintFunction
 public:
 
     UFUNCTION(BlueprintCallable)
+    static FBox2D ExpandBounds(const FBox2D& InBounds, float ExpandRadius);
+
+    UFUNCTION(BlueprintCallable)
     static void TransformBox2DPoints(FGULBox2DPoints& OutPoints, const FTransform& Transform, const FGULBox2DPoints& InPoints);
 
     UFUNCTION(BlueprintCallable)
@@ -146,6 +149,11 @@ public:
 };
 
 // Inlined Functions
+
+FORCEINLINE FBox2D UGULGeometryUtility::ExpandBounds(const FBox2D& InBounds, float ExpandRadius)
+{
+    return InBounds.ExpandBy(ExpandRadius);
+}
 
 inline bool UGULGeometryUtility::SegmentIntersection2D(
     const FVector2D& SegmentA0,
