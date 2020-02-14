@@ -196,10 +196,7 @@ bool UGULPolyUtilityLibrary::IsPointOnPoly(const FVector2D& Point, const FGULInd
                 }
             }
 
-            if (! bIsWithinInnerPoly)
-            {
-                return true;
-            }
+            return !bIsWithinInnerPoly;
         }
         else
         {
@@ -657,27 +654,33 @@ void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGro
     // Generate candidate indices
 
     TArray<int32> CandidateIndices;
-    CandidateIndices.SetNumUninitialized(InPolyCount);
+    TArray<int32> Orientations;
+
+    Orientations.SetNumUninitialized(InPolyCount);
 
     for (int32 PolyIt=0; PolyIt<InPolyCount; ++PolyIt)
     {
+        const TArray<FVector2D>& Points(PolyGroups[PolyIt].Points);
+
         // Only generate index for valid poly
-        if (PolyGroups[PolyIt].Points.Num() >= 3)
+        if (Points.Num() >= 3)
         {
-            CandidateIndices[PolyIt] = PolyIt;
+            CandidateIndices.Emplace(PolyIt);
         }
+
+        // Calculate poly orientation
+        Orientations[PolyIt] = GetOrientation(Points) ? 1 : 0;
     }
 
     TArray<int32> OuterPolyIndices;
     TMap<int32, FGULIndexedPolyGroup> InitialGroupMap;
 
-    for (int32 i=0; i<CandidateIndices.Num(); ++i)
+    for (int32 PolyIndex : CandidateIndices)
     {
-        int32 PolyIndex = CandidateIndices[i];
         const TArray<FVector2D>& Points(PolyGroups[PolyIndex].Points);
 
         // Poly orientation is positive, Assign as outer poly
-        if (GetOrientation(Points))
+        if (Orientations[PolyIndex])
         {
             OuterPolyIndices.Emplace(PolyIndex);
             continue;
@@ -685,16 +688,15 @@ void UGULPolyUtilityLibrary::GroupPolyHierarchyEvenOdd(TArray<FGULIndexedPolyGro
 
         FVector2D InnerPoint(Points[0]);
 
-        // Find for bounding poly if any
-        for (int32 j=0; j<CandidateIndices.Num(); ++j)
+        // Find bounding poly if any
+        for (int32 BoundingPolyIndex : CandidateIndices)
         {
-            // Skip checking the same poly
-            if (j == i)
+            // Skip the same poly or another inner poly
+            if (BoundingPolyIndex == PolyIndex || Orientations[BoundingPolyIndex] < 1)
             {
                 continue;
             }
 
-            int32 BoundingPolyIndex = CandidateIndices[j];
             const TArray<FVector2D>& BoundingPoints(PolyGroups[BoundingPolyIndex].Points);
 
             // Bounding poly found, map the connection
