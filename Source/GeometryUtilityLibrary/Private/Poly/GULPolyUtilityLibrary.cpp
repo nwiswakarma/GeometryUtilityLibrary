@@ -636,21 +636,219 @@ void UGULPolyUtilityLibrary::SubdividePolylinesWithinLength(
     OutPoints.Shrink();
 }
 
-void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
-    TArray<FGULIntGroup>& OutIndexGroups,
-    const TArray<FGULPolyIndexEdge>& InEdges,
+void UGULPolyUtilityLibrary::GenerateSortedBoundaryEdgeGroups(
+    TArray<uint32>& OutIndices,
+    TArray<int32>& OutCounts,
+    const TArray<FGULEdgeIndexPair>& InEdges,
     bool bOpenPolygon
     )
 {
-    OutIndexGroups.Reset();
+    OutIndices.Reset();
+    OutCounts.Reset();
 
-    typedef TDoubleLinkedList<FGULPolyIndexEdge> FEdgeList;
+    const int32 EdgeCount = InEdges.Num();
+
+    // Generate mapped edge list
+
+    struct FMappedEdgeList
+    {
+        const TArray<FGULEdgeIndexPair>& Edges;
+        TMap<uint32, TPair<int32, int32>> EdgeMap;
+
+        FMappedEdgeList(const TArray<FGULEdgeIndexPair>& InEdges)
+            : Edges(InEdges)
+        {
+            EdgeMap.Reserve(Edges.Num()*2);
+
+            for (int32 i=0; i<Edges.Num(); ++i)
+            {
+                MapEdge(i);
+            }
+        }
+
+        void MapEdge(int32 EdgeIndex)
+        {
+            const FGULEdgeIndexPair& Edge(Edges[EdgeIndex]);
+            uint32 MinIndex = Edge.GetMinIndex();
+            uint32 MaxIndex = Edge.GetMaxIndex();
+            auto* MappedIndex0 = EdgeMap.Find(MinIndex);
+            auto* MappedIndex1 = EdgeMap.Find(MaxIndex);
+
+            if (MappedIndex0)
+            {
+                MappedIndex0->Get<1>() = EdgeIndex;
+            }
+            else
+            {
+                EdgeMap.Emplace(MinIndex, TPair<int32, int32>(EdgeIndex, -1));
+            }
+
+            if (MappedIndex1)
+            {
+                MappedIndex1->Get<1>() = EdgeIndex;
+            }
+            else
+            {
+                EdgeMap.Emplace(MaxIndex, TPair<int32, int32>(EdgeIndex, -1));
+            }
+        }
+
+        FORCEINLINE TPair<int32, uint32> GetEdgeConnection(uint32 Index0, uint32 Index1) const
+        {
+            TPair<int32, uint32> Conn(-1, ~0);
+            const TPair<int32, int32>* EdgePair = EdgeMap.Find(Index0);
+
+            if (EdgePair)
+            {
+                int32 EdgeIndex0 = EdgePair->Get<0>();
+                int32 EdgeIndex1 = EdgePair->Get<1>();
+
+                if (EdgeIndex1 >= 0)
+                {
+                    const FGULEdgeIndexPair& Edge0(Edges[EdgeIndex0]);
+                    const FGULEdgeIndexPair& Edge1(Edges[EdgeIndex1]);
+
+                    int32 i0 = FMath::Min(Index0, Index1);
+                    int32 i1 = FMath::Max(Index0, Index1);
+
+                    if (i0 == Edge0.GetMinIndex() && i1 == Edge0.GetMaxIndex())
+                    {
+                        Conn.Get<0>() = EdgeIndex1;
+                        Conn.Get<1>() = Index0 == Edge1.GetMinIndex()
+                            ? Edge1.GetMaxIndex()
+                            : Edge1.GetMinIndex();
+                    }
+                    else
+                    {
+                        Conn.Get<0>() = EdgeIndex0;
+                        Conn.Get<1>() = Index0 == Edge0.GetMinIndex()
+                            ? Edge0.GetMaxIndex()
+                            : Edge0.GetMinIndex();
+                    }
+                }
+            }
+
+            return Conn;
+        }
+    };
+    FMappedEdgeList MappedEdgeList(InEdges);
+
+    // Generate sorted edge list
+
+    typedef TDoubleLinkedList<uint32>         FIndexList;
+    typedef FIndexList::TDoubleLinkedListNode FIndexListNode;
+
+    TBitArray<> EdgeVisitFlags;
+    EdgeVisitFlags.Init(false, EdgeCount);
+
+    for (int32 i=0; i<EdgeCount; ++i)
+    {
+        // Edge visited, skip
+        if (EdgeVisitFlags[i])
+        {
+            continue;
+        }
+
+        // Mark visit
+        EdgeVisitFlags[i] = true;
+
+        // Generate new edge list
+
+        const FGULEdgeIndexPair& InitialEdge(InEdges[i]);
+
+        FIndexList EdgeIndexList;
+
+        EdgeIndexList.AddTail(InitialEdge.GetMinIndex());
+        EdgeIndexList.AddTail(InitialEdge.GetMaxIndex());
+
+        TPair<int32, uint32> HeadConn;
+        TPair<int32, uint32> TailConn;
+
+        bool bHasConnection = false;
+        do
+        {
+            FIndexListNode* HeadNode = EdgeIndexList.GetHead();
+            FIndexListNode* TailNode = EdgeIndexList.GetTail();
+
+            uint32 HeadIndex0 = HeadNode->GetValue();
+            uint32 HeadIndex1 = HeadNode->GetNextNode()->GetValue();
+
+            uint32 TailIndex0 = TailNode->GetValue();
+            uint32 TailIndex1 = TailNode->GetPrevNode()->GetValue();
+
+            HeadConn = MappedEdgeList.GetEdgeConnection(HeadIndex0, HeadIndex1);
+            TailConn = MappedEdgeList.GetEdgeConnection(TailIndex0, TailIndex1);
+
+            int32 HeadConnEdgeIndex = HeadConn.Get<0>();
+            int32 TailConnEdgeIndex = TailConn.Get<0>();
+
+            int32 HeadConnPointIndex = HeadConn.Get<1>();
+            int32 TailConnPointIndex = TailConn.Get<1>();
+
+            bool bValidHeadConn = (HeadConnEdgeIndex >= 0)
+                ? !EdgeVisitFlags[HeadConnEdgeIndex]
+                : false;
+
+            bool bValidTailConn = (TailConnEdgeIndex >= 0)
+                ? !EdgeVisitFlags[TailConnEdgeIndex]
+                : false;
+
+            if (bValidHeadConn)
+            {
+                EdgeVisitFlags[HeadConnEdgeIndex] = true;
+                EdgeIndexList.AddHead(HeadConnPointIndex);
+            }
+
+            if (bValidTailConn)
+            {
+                EdgeVisitFlags[TailConnEdgeIndex] = true;
+                EdgeIndexList.AddTail(TailConnPointIndex);
+            }
+
+            bHasConnection = bValidHeadConn || bValidTailConn;
+        }
+        while (bHasConnection);
+
+        // If generate open polygon,
+        // make sure the first and last points are different
+        if (bOpenPolygon && EdgeIndexList.Num() > 1)
+        {
+            uint32 HeadIndex = EdgeIndexList.GetHead()->GetValue();
+            uint32 TailIndex = EdgeIndexList.GetTail()->GetValue();
+
+            if (HeadIndex == TailIndex)
+            {
+                EdgeIndexList.RemoveNode(EdgeIndexList.GetTail());
+            }
+        }
+
+        // Generate output index group
+
+        const int32 IndexOffset = OutIndices.Num();
+        const int32 IndexCount = EdgeIndexList.Num();
+        int32 IndexIt = 0;
+
+        OutIndices.AddUninitialized(IndexCount);
+        OutCounts.Emplace(IndexCount);
+
+        for (uint32 Index : EdgeIndexList)
+        {
+            OutIndices[IndexOffset+IndexIt] = Index;
+            ++IndexIt;
+        }
+    }
+
+#if 0
+    OutIndices.Reset();
+    OutCounts.Reset();
+
+    typedef TDoubleLinkedList<FGULEdgeIndexPair> FEdgeList;
     typedef FEdgeList::TDoubleLinkedListNode     FEdgeListNode;
 
     FEdgeList EdgeList;
 
     // Generate edge list
-    for (const FGULPolyIndexEdge& Edge : InEdges)
+    for (const FGULEdgeIndexPair& Edge : InEdges)
     {
         EdgeList.AddTail(Edge);
     }
@@ -664,9 +862,9 @@ void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
 
             while (Node)
             {
-                const FGULPolyIndexEdge& Edge(Node->GetValue());
+                const FGULEdgeIndexPair& Edge(Node->GetValue());
 
-                if (Index == Edge.MinIndex || Index == Edge.MaxIndex)
+                if (Index == Edge.GetMinIndex() || Index == Edge.GetMaxIndex())
                 {
                     break;
                 }
@@ -688,8 +886,8 @@ void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
 
         FIndexList EdgeIndexList;
 
-        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().MinIndex);
-        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().MaxIndex);
+        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().GetMinIndex());
+        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().GetMaxIndex());
 
         EdgeList.RemoveNode(EdgeList.GetHead());
 
@@ -705,12 +903,12 @@ void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
 
             if (HeadConn)
             {
-                const FGULPolyIndexEdge& Edge(HeadConn->GetValue());
+                const FGULEdgeIndexPair& Edge(HeadConn->GetValue());
 
                 EdgeIndexList.AddHead(
-                    (HeadIndex == Edge.MinIndex)
-                        ? Edge.MaxIndex
-                        : Edge.MinIndex
+                    (HeadIndex == Edge.GetMinIndex())
+                        ? Edge.GetMaxIndex()
+                        : Edge.GetMinIndex()
                     );
 
                 EdgeList.RemoveNode(HeadConn);
@@ -718,12 +916,12 @@ void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
 
             if (TailConn && TailConn != HeadConn)
             {
-                const FGULPolyIndexEdge& Edge(TailConn->GetValue());
+                const FGULEdgeIndexPair& Edge(TailConn->GetValue());
 
                 EdgeIndexList.AddTail(
-                    (TailIndex == Edge.MinIndex)
-                        ? Edge.MaxIndex
-                        : Edge.MinIndex
+                    (TailIndex == Edge.GetMinIndex())
+                        ? Edge.GetMaxIndex()
+                        : Edge.GetMinIndex()
                     );
 
                 EdgeList.RemoveNode(TailConn);
@@ -751,16 +949,20 @@ void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
 
         // Generate output index group
 
-        OutIndexGroups.AddDefaulted();
-        TArray<int32>& OutIndices(OutIndexGroups.Last().Values);
+        const int32 IndexOffset = OutIndices.Num();
+        const int32 IndexCount = EdgeIndexList.Num();
+        int32 IndexIt = 0;
 
-        OutIndices.Reserve(EdgeIndexList.Num());
+        OutIndices.AddUninitialized(IndexCount);
+        OutCounts.Emplace(IndexCount);
 
         for (uint32 Index : EdgeIndexList)
         {
-            OutIndices.Emplace(Index);
+            OutIndices[IndexOffset+IndexIt] = Index;
+            ++IndexIt;
         }
     }
+#endif
 }
 
 void UGULPolyUtilityLibrary::FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups)

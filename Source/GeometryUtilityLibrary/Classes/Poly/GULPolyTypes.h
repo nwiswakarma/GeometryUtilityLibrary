@@ -31,11 +31,36 @@
 #include "GULTypes.h"
 #include "GULPolyTypes.generated.h"
 
-struct GEOMETRYUTILITYLIBRARY_API FGULPolyIndexEdge
+union GEOMETRYUTILITYLIBRARY_API FGULEdgeIndexPair
 {
-    int32 MinIndex;
-    int32 MaxIndex;
+    uint64 IndexPacked;
+    struct { uint32 MinIndex, MaxIndex; };
+
+    FGULEdgeIndexPair() = default;
+
+    FGULEdgeIndexPair(uint64 InIndexPacked)
+        : IndexPacked(InIndexPacked)
+    {
+    }
+
+    FGULEdgeIndexPair(uint32 InMinIndex, uint32 InMaxIndex)
+        : MinIndex(InMinIndex)
+        , MaxIndex(InMaxIndex)
+    {
+    }
+
+    FORCEINLINE uint32 GetMinIndex() const
+    {
+        return MinIndex;
+    }
+
+    FORCEINLINE uint32 GetMaxIndex() const
+    {
+        return MaxIndex;
+    }
 };
+
+template <> struct TIsPODType<FGULEdgeIndexPair> { enum { Value = true }; };
 
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULIndexedPolyGroup

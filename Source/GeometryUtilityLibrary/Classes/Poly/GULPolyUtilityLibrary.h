@@ -222,7 +222,7 @@ public:
     // Polylines
 
     static void SubdividePolylines(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InPoints);
-    FORCEINLINE static void SubdividePolylines(TArray<FVector2D>& Points);
+    static void SubdividePolylines(TArray<FVector2D>& Points);
 
     static void SubdividePolylinesWithinLength(
         TArray<FVector2D>& OutPoints,
@@ -232,11 +232,47 @@ public:
         bool bClosePolygonOutput = false
         );
 
-    static void GenerateSortedEdgeGroups(
-        TArray<FGULIntGroup>& OutIndexGroups,
-        const TArray<FGULPolyIndexEdge>& InEdges,
-        bool bOpenPolygon
+    static void GenerateSortedBoundaryEdgeGroups(
+        TArray<uint32>& OutIndices,
+        TArray<int32>& OutCounts,
+        const TArray<FGULEdgeIndexPair>& InEdges,
+        bool bOpenPolygon = true
         );
+
+    static void GenerateSortedBoundaryEdgeGroups(
+        TArray<FGULIntGroup>& OutIndexGroups,
+        const TArray<FGULEdgeIndexPair>& InEdges,
+        bool bOpenPolygon = true
+        );
+
+    static void GatherBoundaryEdges(
+        TArray<FGULEdgeIndexPair>& OutEdges,
+        const TArray<FGULEdgeIndexPair>& InEdges
+        );
+
+    template<typename FIndexArrayType>
+    inline static void GenerateEdgesFromTriangles(
+        TArray<FGULEdgeIndexPair>& OutEdges,
+        const FIndexArrayType& InTriangles
+        )
+    {
+        OutEdges.SetNumUninitialized(InTriangles.Num());
+
+        for (int32 i=0; i<InTriangles.Num(); i+=3)
+        {
+            const int32 i0 = i;
+            const int32 i1 = i+1;
+            const int32 i2 = i+2;
+
+            const uint32 vi0 = static_cast<uint32>(InTriangles[i0]);
+            const uint32 vi1 = static_cast<uint32>(InTriangles[i1]);
+            const uint32 vi2 = static_cast<uint32>(InTriangles[i2]);
+
+            OutEdges[i0] = FGULEdgeIndexPair(FMath::Min(vi0, vi1), FMath::Max(vi0, vi1));
+            OutEdges[i1] = FGULEdgeIndexPair(FMath::Min(vi0, vi2), FMath::Max(vi0, vi2));
+            OutEdges[i2] = FGULEdgeIndexPair(FMath::Min(vi1, vi2), FMath::Max(vi1, vi2));
+        }
+    }
 
     // Poly Grouping
 
@@ -562,4 +598,102 @@ FORCEINLINE void UGULPolyUtilityLibrary::SubdividePolylines(TArray<FVector2D>& P
 {
     TArray<FVector2D> InPoints(Points);
     SubdividePolylines(Points, InPoints);
+}
+
+inline void UGULPolyUtilityLibrary::GenerateSortedBoundaryEdgeGroups(
+    TArray<FGULIntGroup>& OutIndexGroups,
+    const TArray<FGULEdgeIndexPair>& InEdges,
+    bool bOpenPolygon
+    )
+{
+    TArray<uint32> Indices;
+    TArray<int32> IndexCounts;
+
+    GenerateSortedBoundaryEdgeGroups(
+        Indices,
+        IndexCounts,
+        InEdges,
+        bOpenPolygon
+        );
+
+    OutIndexGroups.SetNum(IndexCounts.Num());
+
+    for (int32 gi=0, IndexOffset=0; gi<IndexCounts.Num(); ++gi)
+    {
+        const int32 IndexCount = IndexCounts[gi];
+
+        TArray<int32>& OutIndices(OutIndexGroups[gi].Values);
+        OutIndices.SetNumUninitialized(IndexCount);
+
+        FMemory::Memcpy(
+            OutIndices.GetData(),
+            Indices.GetData()+IndexOffset,
+            IndexCount*Indices.GetTypeSize()
+            );
+
+        IndexOffset += IndexCount;
+    }
+}
+
+inline void UGULPolyUtilityLibrary::GatherBoundaryEdges(
+    TArray<FGULEdgeIndexPair>& OutEdges,
+    const TArray<FGULEdgeIndexPair>& InEdges
+    )
+{
+    OutEdges.Reset();
+
+    // Insufficient boundary edges, assign input edges as output
+    if (InEdges.Num() < 2)
+    {
+        OutEdges = InEdges;
+        return;
+    }
+
+    const int32 EdgeCount = InEdges.Num();
+
+    TArray<FGULEdgeIndexPair> SortedEdges(InEdges);
+
+    SortedEdges.Sort(
+        [](const FGULEdgeIndexPair& lhs, const FGULEdgeIndexPair& rhs)
+        {
+            return lhs.IndexPacked < rhs.IndexPacked;
+        } );
+
+    TArray<FGULEdgeIndexPair> FilteredEdges;
+
+    FilteredEdges.Reserve(EdgeCount);
+
+    FGULEdgeIndexPair PrevEdge = SortedEdges[0];
+    FGULEdgeIndexPair CurrEdge;
+
+    // Find all edges with single usage count
+    for (int32 UsageCount=1, i=1; i<EdgeCount; ++i)
+    {
+        CurrEdge = SortedEdges[i];
+
+        if (CurrEdge.IndexPacked != PrevEdge.IndexPacked)
+        {
+            if (UsageCount == 1)
+            {
+                FilteredEdges.Emplace(PrevEdge);
+            }
+
+            UsageCount = 1;
+        }
+        else
+        {
+            UsageCount++;
+        }
+
+        PrevEdge = CurrEdge;
+    }
+    // Check if the last edge is different than the edge before
+    if (SortedEdges[EdgeCount-1].IndexPacked != SortedEdges[EdgeCount-2].IndexPacked)
+    {
+        FilteredEdges.Emplace(SortedEdges[EdgeCount-1]);
+    }
+
+    FilteredEdges.Shrink();
+
+    OutEdges = MoveTemp(FilteredEdges);
 }
