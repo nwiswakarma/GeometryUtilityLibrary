@@ -232,6 +232,12 @@ public:
         bool bClosePolygonOutput = false
         );
 
+    static void GenerateSortedEdgeGroups(
+        TArray<FGULIntGroup>& OutIndexGroups,
+        const TArray<FGULPolyIndexEdge>& InEdges,
+        bool bOpenPolygon
+        );
+
     // Poly Grouping
 
     static void FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups);

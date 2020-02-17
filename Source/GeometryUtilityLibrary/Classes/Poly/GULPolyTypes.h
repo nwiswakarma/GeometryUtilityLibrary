@@ -31,6 +31,12 @@
 #include "GULTypes.h"
 #include "GULPolyTypes.generated.h"
 
+struct GEOMETRYUTILITYLIBRARY_API FGULPolyIndexEdge
+{
+    int32 MinIndex;
+    int32 MaxIndex;
+};
+
 USTRUCT(BlueprintType)
 struct GEOMETRYUTILITYLIBRARY_API FGULIndexedPolyGroup
 {

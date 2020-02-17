@@ -636,6 +636,133 @@ void UGULPolyUtilityLibrary::SubdividePolylinesWithinLength(
     OutPoints.Shrink();
 }
 
+void UGULPolyUtilityLibrary::GenerateSortedEdgeGroups(
+    TArray<FGULIntGroup>& OutIndexGroups,
+    const TArray<FGULPolyIndexEdge>& InEdges,
+    bool bOpenPolygon
+    )
+{
+    OutIndexGroups.Reset();
+
+    typedef TDoubleLinkedList<FGULPolyIndexEdge> FEdgeList;
+    typedef FEdgeList::TDoubleLinkedListNode     FEdgeListNode;
+
+    FEdgeList EdgeList;
+
+    // Generate edge list
+    for (const FGULPolyIndexEdge& Edge : InEdges)
+    {
+        EdgeList.AddTail(Edge);
+    }
+
+    // Find edge on list helper struct
+    struct FEdgeHelper
+    {
+        FORCEINLINE static FEdgeListNode* FindEdge(FEdgeList& InEdgeList, int32 Index)
+        {
+            FEdgeListNode* Node = InEdgeList.GetHead();
+
+            while (Node)
+            {
+                const FGULPolyIndexEdge& Edge(Node->GetValue());
+
+                if (Index == Edge.MinIndex || Index == Edge.MaxIndex)
+                {
+                    break;
+                }
+
+                Node = Node->GetNextNode();
+            }
+
+            return Node;
+        }
+    };
+
+    // Generate sorted edge list
+
+    typedef TDoubleLinkedList<uint32> FIndexList;
+
+    while (EdgeList.Num() > 0)
+    {
+        // Generate new edge list
+
+        FIndexList EdgeIndexList;
+
+        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().MinIndex);
+        EdgeIndexList.AddTail(EdgeList.GetHead()->GetValue().MaxIndex);
+
+        EdgeList.RemoveNode(EdgeList.GetHead());
+
+        // Find connections to current edge list
+        while (EdgeList.Num() > 0)
+        {
+            uint32 HeadIndex = EdgeIndexList.GetHead()->GetValue();
+            uint32 TailIndex = EdgeIndexList.GetTail()->GetValue();
+
+            // Find connection to end points
+            FEdgeListNode* HeadConn = FEdgeHelper::FindEdge(EdgeList, HeadIndex);
+            FEdgeListNode* TailConn = FEdgeHelper::FindEdge(EdgeList, TailIndex);
+
+            if (HeadConn)
+            {
+                const FGULPolyIndexEdge& Edge(HeadConn->GetValue());
+
+                EdgeIndexList.AddHead(
+                    (HeadIndex == Edge.MinIndex)
+                        ? Edge.MaxIndex
+                        : Edge.MinIndex
+                    );
+
+                EdgeList.RemoveNode(HeadConn);
+            }
+
+            if (TailConn && TailConn != HeadConn)
+            {
+                const FGULPolyIndexEdge& Edge(TailConn->GetValue());
+
+                EdgeIndexList.AddTail(
+                    (TailIndex == Edge.MinIndex)
+                        ? Edge.MaxIndex
+                        : Edge.MinIndex
+                    );
+
+                EdgeList.RemoveNode(TailConn);
+            }
+
+            // No more connection for current edge list
+            if (! HeadConn && ! TailConn)
+            {
+                break;
+            }
+        }
+
+        // If generate open polygon,
+        // make sure the first and last points are different
+        if (bOpenPolygon && EdgeIndexList.Num() > 1)
+        {
+            uint32 HeadIndex = EdgeIndexList.GetHead()->GetValue();
+            uint32 TailIndex = EdgeIndexList.GetTail()->GetValue();
+
+            if (HeadIndex == TailIndex)
+            {
+                EdgeIndexList.RemoveNode(EdgeIndexList.GetTail());
+            }
+        }
+
+        // Generate output index group
+
+        OutIndexGroups.AddDefaulted();
+        TArray<int32>& OutIndices(OutIndexGroups.Last().Values);
+
+        OutIndices.Reserve(EdgeIndexList.Num());
+
+        for (uint32 Index : EdgeIndexList)
+        {
+            OutIndices.Emplace(Index);
+        }
+    }
+}
+
 void UGULPolyUtilityLibrary::FixOrientations(TArray<FGULVector2DGroup>& InOutPolyGroups)
 {
     for (FGULVector2DGroup& Poly : InOutPolyGroups)
