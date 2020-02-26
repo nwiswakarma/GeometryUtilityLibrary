@@ -89,11 +89,16 @@ struct GEOMETRYUTILITYLIBRARY_API FGULPolyDisplacementParams
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     float Scale = .985f;
 
-    FORCEINLINE bool IsValid() const
+    FORCEINLINE bool HasValidSubdivision() const
     {
         return SubdivCount >= 0
-            && SubdivLimit > 0.f
-            && Size.GetMin() > KINDA_SMALL_NUMBER;
+            && SubdivLimit > 0.f;
+    }
+
+    FORCEINLINE bool HasValidSize() const
+    {
+        return Size.GetMin() > 0.f
+            && Scale > 0.f;
     }
 };
 
@@ -105,19 +110,8 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyGeneratorLibrary : public UBlueprintFun
     struct FRoughV2D
     {
         FVector2D Pos;
-        FVector2D Nrm;
         float Balance;
         float MaxOffset;
-
-        FORCEINLINE FRoughV2D() = default;
-
-        FORCEINLINE FRoughV2D(const FRoughV2D& v)
-            : Pos(v.Pos)
-            , Nrm(v.Nrm)
-            , Balance(v.Balance)
-            , MaxOffset(v.MaxOffset)
-        {
-        }
 
         FORCEINLINE FRoughV2D(float x, float y, float b, float m)
             : Pos(x, y)
@@ -126,29 +120,36 @@ class GEOMETRYUTILITYLIBRARY_API UGULPolyGeneratorLibrary : public UBlueprintFun
         {
         }
 
-        FORCEINLINE FRoughV2D(float x, float y, FRandomStream& rand, float rmin, float rmax)
+        FORCEINLINE FRoughV2D(float x, float y, FRandomStream& Rand, float rmin, float rmax)
             : Pos(x, y)
         {
-            GenerateBalance(rand, rmin, rmax);
+            GenerateBalance(Rand, rmin, rmax);
         }
 
-        FORCEINLINE FRoughV2D(const FVector2D& p, FRandomStream& rand, float rmin, float rmax)
+        FORCEINLINE FRoughV2D(const FVector2D& p, FRandomStream& Rand, float rmin, float rmax)
             : Pos(p)
         {
-            GenerateBalance(rand, rmin, rmax);
+            GenerateBalance(Rand, rmin, rmax);
         }
 
-        void GenerateBalance(FRandomStream& rand, float rmin, float rmax)
+        void GenerateBalance(FRandomStream& Rand, float rmin, float rmax)
         {
-            Balance = rand.GetFraction();
-            MaxOffset = FMath::Max(.05f, rand.GetFraction()) * rand.FRandRange(rmin, rmax);
+            Balance = Rand.GetFraction();
+            MaxOffset = Rand.GetFraction() * Rand.FRandRange(rmin, rmax);
         }
     };
 
     typedef TDoubleLinkedList<FRoughV2D>     FPolyList;
     typedef FPolyList::TDoubleLinkedListNode FPolyNode;
 
-    static void GeneratePolyDisplacementInternal(TArray<FVector2D>& OutPoints, FPolyList& PolyList, FBox2D& Bounds, const FGULPolyDisplacementParams& Params, FRandomStream& Rand);
+    static void GeneratePolyDisplacementInternal(
+        TArray<FVector2D>& OutPoints,
+        FPolyList& PolyList,
+        FBox2D& Bounds,
+        const FGULPolyDisplacementParams& Params,
+        FRandomStream& Rand,
+        bool bFitToBounds
+        );
 
 public:
 
@@ -156,7 +157,12 @@ public:
     static void GeneratePoly(TArray<FVector2D>& OutPoints, const FGULPolyGenerationParams& Params);
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Poly Displacement", AutoCreateRefTerm="Params"))
-    static void GeneratePolyDisplacement(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InitialPoints, const FGULPolyDisplacementParams& Params);
+    static void GeneratePolyDisplacement(
+        TArray<FVector2D>& OutPoints,
+        const TArray<FVector2D>& InitialPoints,
+        const FGULPolyDisplacementParams& Params,
+        bool bFitToBounds = true
+        );
 
     UFUNCTION(BlueprintCallable, meta=(DisplayName="Generate Point Offsets"))
     static TArray<FVector2D> K2_GeneratePointOffsets(int32 Seed, const TArray<FVector2D>& Points, float PointRadius);

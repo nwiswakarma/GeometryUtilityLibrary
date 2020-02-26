@@ -27,16 +27,21 @@
 
 #include "Poly/GULPolyGeneratorLibrary.h"
 
-void UGULPolyGeneratorLibrary::GeneratePolyDisplacementInternal(TArray<FVector2D>& OutPoints, FPolyList& PolyList, FBox2D& Bounds, const FGULPolyDisplacementParams& Params, FRandomStream& Rand)
+void UGULPolyGeneratorLibrary::GeneratePolyDisplacementInternal(
+    TArray<FVector2D>& OutPoints,
+    FPolyList& PolyList,
+    FBox2D& Bounds,
+    const FGULPolyDisplacementParams& Params,
+    FRandomStream& Rand,
+    bool bFitToBounds
+    )
 {
-    check(Params.IsValid());
+    check(Params.HasValidSubdivision());
+    check(!bFitToBounds || Params.HasValidSize());
 
     const int32 SubdivCount = Params.SubdivCount;
     const float SubdivLimit = Params.SubdivLimit;
-    const float PolyScale = Params.Scale;
-
-    const FVector2D& Size(Params.Size);
-    const FVector2D  Extents = Size/2.f;
+    const float SubdivLimitSq = SubdivLimit*SubdivLimit;
 
     // Subdivides poly edges
     for (int32 i=0; i<SubdivCount; ++i)
@@ -52,42 +57,68 @@ void UGULPolyGeneratorLibrary::GeneratePolyDisplacementInternal(TArray<FVector2D
             const FVector2D& v0(r0.Pos);
             const FVector2D& v1(r1.Pos);
 
-            if (FVector2D::DistSquared(v0, v1) > SubdivLimit)
+            if (FVector2D::DistSquared(v0, v1) > SubdivLimitSq)
             {
+                // Segment mid-point
                 float mx = (v0.X+v1.X)*.5f;
                 float my = (v0.Y+v1.Y)*.5f;
+                // Perpendicular offset
                 float vx = -(v0.Y-v1.Y);
                 float vy = v0.X-v1.X;
+                // Insert new mid-point displacement point node
                 float b = r1.Balance;
                 float o = r1.MaxOffset;
                 float d = (Rand.GetFraction()-b)*o;
                 FRoughV2D pt(mx+d*vx, my+d*vy, b, o);
                 PolyList.InsertNode(pt, n);
+
+                // Expand bounds
                 Bounds += pt.Pos;
+
                 ++SubdivPerformed;
             }
 
             n = n->GetNextNode();
         }
 
+        // Current iteration produce no subdivision, stop iteration
         if (SubdivPerformed < 1)
         {
             break;
         }
     }
 
-    // Fit points to bounds & write output vertices
+    // Fit points to bounds & write output vertices if required
+    if (bFitToBounds)
     {
+        const FVector2D BoundsSize = Bounds.GetSize();
+
+        check(BoundsSize.X > 0.f);
+        check(BoundsSize.Y > 0.f);
+
+        const FVector2D& Size(Params.Size);
+        const FVector2D Extents = Size/2.f;
+        const float PolyScale = Params.Scale;
+
         const FVector2D& Unit(FVector2D::UnitVector);
         FVector2D Offset = Unit-(Unit+Bounds.Min);
         FVector2D ScaledOffset = Extents * (1.f-PolyScale);
-        float Scale = (Size/Bounds.GetSize()).GetMin() * PolyScale;
+        float Scale = (Size/BoundsSize).GetMin() * PolyScale;
 
         OutPoints.Reset(PolyList.Num());
 
         for (const FRoughV2D& v : PolyList)
         {
             OutPoints.Emplace(ScaledOffset + (Offset+v.Pos)*Scale);
+        }
+    }
+    else
+    {
+        OutPoints.Reset(PolyList.Num());
+
+        for (const FRoughV2D& v : PolyList)
+        {
+            OutPoints.Emplace(v.Pos);
         }
     }
 }
@@ -129,10 +160,16 @@ void UGULPolyGeneratorLibrary::GeneratePoly(TArray<FVector2D>& OutPoints, const 
     }
 }
 
-void UGULPolyGeneratorLibrary::GeneratePolyDisplacement(TArray<FVector2D>& OutPoints, const TArray<FVector2D>& InitialPoints, const FGULPolyDisplacementParams& Params)
+void UGULPolyGeneratorLibrary::GeneratePolyDisplacement(
+    TArray<FVector2D>& OutPoints,
+    const TArray<FVector2D>& InitialPoints,
+    const FGULPolyDisplacementParams& Params,
+    bool bFitToBounds
+    )
 {
     // Invalid Parameters, abort
-    if (! Params.IsValid())
+    if (! Params.HasValidSubdivision() ||
+        (bFitToBounds && ! Params.HasValidSize()))
     {
         return;
     }
@@ -156,7 +193,14 @@ void UGULPolyGeneratorLibrary::GeneratePolyDisplacement(TArray<FVector2D>& OutPo
     PolyList.AddTail(PolyList.GetHead()->GetValue());
 
     // Generate poly displacement
-    GeneratePolyDisplacementInternal(OutPoints, PolyList, Bounds, Params, Rand);
+    GeneratePolyDisplacementInternal(
+        OutPoints,
+        PolyList,
+        Bounds,
+        Params,
+        Rand,
+        bFitToBounds
+        );
 }
 
 TArray<FVector2D> UGULPolyGeneratorLibrary::K2_GeneratePointOffsets(int32 Seed, const TArray<FVector2D>& Points, float PointRadius)
